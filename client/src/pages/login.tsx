@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginForm } from "@shared/schema";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth.tsx";
 import { useLocation } from "wouter";
 import { Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

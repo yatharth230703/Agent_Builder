@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterForm } from "@shared/schema";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth.tsx";
 import { useLocation } from "wouter";
 import { Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
