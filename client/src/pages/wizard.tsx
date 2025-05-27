@@ -14,6 +14,7 @@ import type { WizardConfig } from "@/types/wizard";
 export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [agentName, setAgentName] = useState("");
+  const [userPrompt, setUserPrompt] = useState("");
   const [config, setConfig] = useState<WizardConfig>({
     approach: "",
     framework: "",
@@ -26,8 +27,28 @@ export default function Wizard() {
   const { toast } = useToast();
 
   const createAgentMutation = useMutation({
-    mutationFn: async (data: { name: string; config: WizardConfig }) => {
-      const response = await apiRequest("POST", "/api/agents", data);
+    mutationFn: async (data: { name: string; config: WizardConfig; prompt: string }) => {
+      // First generate the agent code using AI
+      const aiResponse = await fetch('http://localhost:5001/api/ai/walkthrough', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: data.prompt,
+          techStack: `${data.config.framework} + ${data.config.llmProvider} + ${data.config.toolUse}`,
+          options: data.config
+        })
+      });
+      
+      const aiData = await aiResponse.json();
+      
+      // Then save the agent with generated code
+      const agentData = {
+        name: data.name,
+        config: data.config,
+        pythonScript: aiData.success ? aiData.python : ""
+      };
+      
+      const response = await apiRequest("POST", "/api/agents", agentData);
       return response.json();
     },
     onSuccess: () => {
@@ -52,7 +73,7 @@ export default function Wizard() {
   };
 
   const nextStep = () => {
-    if (currentStep < 6) {
+    if (currentStep < 7) {
       setCurrentStep(current => current + 1);
     }
   };
@@ -73,9 +94,19 @@ export default function Wizard() {
       return;
     }
 
+    if (!userPrompt.trim()) {
+      toast({
+        title: "User prompt required",
+        description: "Please describe what you want your agent to do",
+        variant: "destructive",
+      });
+      return;
+    }
+
     createAgentMutation.mutate({
       name: agentName,
       config,
+      prompt: userPrompt,
     });
   };
 
@@ -87,6 +118,7 @@ export default function Wizard() {
       case 4: return config.toolUse !== "";
       case 5: return config.embedder !== "" && config.vectorDb !== "";
       case 6: return agentName.trim() !== "";
+      case 7: return userPrompt.trim() !== "";
       default: return false;
     }
   };
