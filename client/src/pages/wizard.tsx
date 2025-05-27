@@ -15,6 +15,10 @@ export default function Wizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [agentName, setAgentName] = useState("");
   const [userPrompt, setUserPrompt] = useState("");
+  const [customUrls, setCustomUrls] = useState<string[]>([]);
+  const [recommendations, setRecommendations] = useState<any>(null);
+  const [showRecommendationDialog, setShowRecommendationDialog] = useState(false);
+  const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null);
   const [config, setConfig] = useState<WizardConfig>({
     approach: "",
     framework: "",
@@ -25,6 +29,44 @@ export default function Wizard() {
   });
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Get user prompt and URLs from localStorage
+  useEffect(() => {
+    const prompt = localStorage.getItem("userPrompt");
+    const urls = localStorage.getItem("customUrls");
+    
+    if (prompt) {
+      setUserPrompt(prompt);
+      // Get recommendations based on user prompt
+      fetchRecommendations(prompt);
+    } else {
+      setLocation("/");
+    }
+    
+    if (urls) {
+      setCustomUrls(JSON.parse(urls));
+    }
+  }, [setLocation]);
+
+  const fetchRecommendations = async (prompt: string) => {
+    try {
+      const response = await fetch('http://localhost:5001/api/ai/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: prompt,
+          userPrompt: prompt 
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success && data.recommendations) {
+        setRecommendations(data.recommendations);
+      }
+    } catch (error) {
+      console.log("Could not fetch recommendations");
+    }
+  };
 
   const createAgentMutation = useMutation({
     mutationFn: async (data: { name: string; config: WizardConfig; prompt: string }) => {

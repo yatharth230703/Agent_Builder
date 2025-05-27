@@ -12,6 +12,7 @@ import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import Wizard from "@/pages/wizard";
 import Chat from "@/pages/chat";
+import CustomUrls from "@/pages/custom-urls";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/wizard" component={Wizard} />
+      <Route path="/custom-urls" component={CustomUrls} />
       <Route path="/agents/:id/chat" component={Chat} />
       <Route component={NotFound} />
     </Switch>

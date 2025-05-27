@@ -1,81 +1,151 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useLocation } from "wouter";
-import { Bot, Wand2, MessageSquare, TrendingUp, Play } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Link, useLocation } from "wouter";
+import { useState } from "react";
+import { Brain, Lightbulb, FileText } from "lucide-react";
 
 export default function Home() {
+  const [userPrompt, setUserPrompt] = useState("");
   const [, setLocation] = useLocation();
 
+  const handleWalkMeThrough = () => {
+    if (!userPrompt.trim()) {
+      return;
+    }
+    // Store prompt in localStorage for wizard to access
+    localStorage.setItem("userPrompt", userPrompt);
+    setLocation("/wizard");
+  };
+
+  const handleIKnowWhatImDoing = () => {
+    if (!userPrompt.trim()) {
+      return;
+    }
+    // Store prompt and navigate to URL input page
+    localStorage.setItem("userPrompt", userPrompt);
+    setLocation("/custom-urls");
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-      {/* Hero Section */}
-      <section className="text-center py-16">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-5xl font-bold text-phil-dark mb-6">
-            Build AI Agents Like a Pro
-          </h2>
-          <p className="text-xl text-gray-700 mb-8 leading-relaxed">
-            PHIL helps junior developers and "vibe coders" create, inspect, and tweak multi-agent AI flows using Langchain, LlamaIndex, CrewAI, and more. See what's under the hood and understand every step.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg"
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all"
-              onClick={() => setLocation("/wizard")}
-            >
-              <Wand2 className="mr-2 h-5 w-5" />
-              Start Building Agent
-            </Button>
-            <Button 
-              variant="outline"
-              size="lg"
-              className="border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white px-8 py-4 text-lg font-semibold transition-all"
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Watch Demo
-            </Button>
+    <div className="min-h-screen" style={{ backgroundColor: '#F5E6A3' }}>
+      {/* Header */}
+      <header className="bg-purple-400 px-6 py-4">
+        <nav className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex space-x-8">
+            <span className="font-bold text-white text-lg">Home</span>
+            <Link href="/dashboard" className="text-white hover:text-purple-200">Dashboard</Link>
+            <Link href="/login" className="text-white hover:text-purple-200">login</Link>
+          </div>
+        </nav>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Main Hero Section */}
+        <div className="grid lg:grid-cols-2 gap-8 items-center mb-16">
+          {/* Left Side - PHIL Circle */}
+          <div className="flex justify-center">
+            <div className="relative">
+              <div className="w-80 h-80 rounded-full bg-pink-500 flex flex-col items-center justify-center text-white p-8">
+                <div className="absolute top-8 w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                  <Brain className="h-6 w-6 text-pink-500" />
+                </div>
+                <h1 className="text-4xl font-bold mb-2">PHIL:</h1>
+                <h2 className="text-2xl font-bold mb-4">Cause Why bother?!</h2>
+                <p className="text-sm text-center mb-2">
+                  You insisted on vibe coding, now vibe code your agents too.
+                </p>
+                <p className="text-sm text-center">
+                  Never open a documentation again ,cause why bother!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Get Started */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">GET STARTED</h3>
+              
+              <Card className="bg-purple-200 border-none mb-4">
+                <CardContent className="p-4">
+                  <p className="text-sm text-purple-800 mb-3">
+                    What do you want your agent to do that you couldn't bother doing yourself?
+                  </p>
+                  <Textarea
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    placeholder="Describe what you want your AI agent to accomplish..."
+                    className="min-h-[120px] border-purple-300 focus:border-purple-500 bg-white"
+                  />
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={handleWalkMeThrough}
+                  disabled={!userPrompt.trim()}
+                  className="flex-1 bg-green-300 hover:bg-green-400 text-green-800 font-medium"
+                >
+                  WALK ME THROUGH
+                </Button>
+                <Button
+                  onClick={handleIKnowWhatImDoing}
+                  disabled={!userPrompt.trim()}
+                  className="flex-1 bg-green-200 hover:bg-green-300 text-green-800 font-medium"
+                >
+                  I KNOW WHAT IM DOING
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* Feature Grid */}
-      <section className="grid md:grid-cols-3 gap-8">
-        <Card className="bg-white shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-8">
-            <div className="w-16 h-16 bg-phil-purple rounded-full flex items-center justify-center mb-6">
-              <Wand2 className="text-white h-8 w-8" />
+        {/* Motivation Section */}
+        <div className="bg-purple-300 rounded-lg p-8 mb-8">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Motivation : Meet Phil</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum 
+                ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum 
+                ipsum Lorem ipsum Lorem ipsum Lorem ipsum ipsum
+              </p>
             </div>
-            <h3 className="text-2xl font-bold text-phil-dark mb-4">Agent Creation Wizard</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Step-by-step UI for selecting frameworks, LLM providers, tools, and configurations. No coding required to get started.
-            </p>
-          </CardContent>
-        </Card>
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="w-32 h-32 bg-gray-400 rounded-full flex items-center justify-center">
+                  <Brain className="h-16 w-16 text-white" />
+                </div>
+                <div className="absolute -top-4 -right-4 bg-green-300 rounded-lg p-3 max-w-[200px]">
+                  <p className="text-sm font-medium text-green-800">
+                    As a language model, I couldn't care less that your dog died
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <Card className="bg-white shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-8">
-            <div className="w-16 h-16 bg-phil-pink rounded-full flex items-center justify-center mb-6">
-              <MessageSquare className="text-white h-8 w-8" />
+        {/* About Me Section */}
+        <div className="bg-purple-400 rounded-lg p-8">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-4">About Me</h3>
+              <p className="text-purple-100 leading-relaxed">
+                Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum 
+                ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum 
+                ipsum Lorem ipsum Lorem ipsum Lorem ipsum ipsum
+              </p>
             </div>
-            <h3 className="text-2xl font-bold text-phil-dark mb-4">Interactive Chat</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Chat with your agents in real-time, see code updates, and watch as agents reconfigure themselves dynamically.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-8">
-            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-6">
-              <TrendingUp className="text-white h-8 w-8" />
+            <div className="flex justify-center">
+              <div className="w-48 h-32 bg-gradient-to-br from-cyan-300 to-purple-300 rounded-lg flex items-center justify-center">
+                <FileText className="h-16 w-16 text-white" />
+              </div>
             </div>
-            <h3 className="text-2xl font-bold text-phil-dark mb-4">Cost & Performance</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Get detailed cost estimates, performance analysis, and technical improvement suggestions for your agents.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
