@@ -1,7 +1,7 @@
 def stream_personality_response(text):
     url = "https://api.perplexity.ai/chat/completions"
     headers = {
-        "Authorization": "Bearer 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",
+        "Authorization": "Bearer  + os.getenv("PERPLEXITY_API_KEY") + ",
     }
     payload = {
         "model": "sonar",

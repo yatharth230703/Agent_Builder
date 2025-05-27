@@ -1,3 +1,6 @@
+import os
+import requests
+
 def walk_me_through_code_agent( search_filter_context, tech_stack, user_prompt):
     AGENT_BUILDER_PROMPT =f""" 
         You are a world class AI engineer and have been building agents and LLMs for the last decade. You have mastery over bash , CLI ,python and all the modern coding practices used in LLM frameworks like langchain, llamaindex, crewAI etc. You are tasked with generating a 
@@ -39,7 +42,8 @@ def walk_me_through_code_agent( search_filter_context, tech_stack, user_prompt):
         
         """
     url = "https://api.perplexity.ai/chat/completions"
-    headers = {"Authorization":  "Bearer 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"}
+    api_key = os.getenv('PERPLEXITY_API_KEY')
+    headers = {"Authorization": f"Bearer {api_key}"}
     payload = {
         "model": "sonar-reasoning-pro",
         "messages": [

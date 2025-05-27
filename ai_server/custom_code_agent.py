@@ -68,7 +68,7 @@ def call_custom_code_agent( search_filter_custom: List[str], user_prompt: str) -
     
     """
     url = "https://api.perplexity.ai/chat/completions"
-    headers = {"Authorization":  "Bearer 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"}
+    headers = {"Authorization":  "Bearer  + os.getenv("PERPLEXITY_API_KEY") + "}
     payload = {
         "model": "sonar-reasoning-pro",
         "messages": [

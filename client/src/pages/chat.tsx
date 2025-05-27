@@ -57,17 +57,49 @@ export default function Chat() {
     setInputValue("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: ChatMessage = {
+    try {
+      // Call AI orchestration service
+      const response = await fetch('http://localhost:5001/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agentId: id,
+          message: inputValue,
+          contextUrls: [],
+          currentCode: sampleCode,
+          messagesHistory: messages.map(m => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.content
+          }))
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const aiMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: "ai",
+          content: data.response || "I've processed your request successfully!",
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error(data.error || 'AI service unavailable');
+      }
+    } catch (error) {
+      const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: "ai",
-        content: "I understand your request. Let me analyze that and provide you with a comprehensive response. This would normally involve processing through the AI orchestration service.",
+        content: "I'm having trouble connecting to the AI service right now. Please try again in a moment.",
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, aiMessage]);
-      setIsTyping(false);
-    }, 2000);
+      setMessages(prev => [...prev, errorMessage]);
+    }
+    
+    setIsTyping(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
