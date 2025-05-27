@@ -1,5 +1,7 @@
 import os
 import requests
+import json
+import sseclient
 
 def stream_personality_response(text):
     url = "https://api.perplexity.ai/chat/completions"
