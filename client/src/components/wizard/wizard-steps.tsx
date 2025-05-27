@@ -12,9 +12,11 @@ interface WizardStepsProps {
   updateConfig: (field: keyof WizardConfig, value: string) => void;
   agentName: string;
   setAgentName: (name: string) => void;
+  userPrompt: string;
+  setUserPrompt: (prompt: string) => void;
 }
 
-export function WizardSteps({ currentStep, config, updateConfig, agentName, setAgentName }: WizardStepsProps) {
+export function WizardSteps({ currentStep, config, updateConfig, agentName, setAgentName, userPrompt, setUserPrompt }: WizardStepsProps) {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
@@ -276,6 +278,30 @@ export function WizardSteps({ currentStep, config, updateConfig, agentName, setA
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        );
+
+      case 7:
+        return (
+          <div>
+            <h2 className="text-3xl font-bold text-phil-dark mb-6">Describe Your Agent</h2>
+            <p className="text-gray-600 mb-8">Tell us what you want your AI agent to do. Be specific about the tasks, goals, and capabilities you need.</p>
+            
+            <div className="space-y-4">
+              <Label htmlFor="userPrompt" className="text-lg font-medium">
+                Agent Description & Goals
+              </Label>
+              <textarea
+                id="userPrompt"
+                value={userPrompt}
+                onChange={(e) => setUserPrompt(e.target.value)}
+                placeholder="Example: Create an agent that can analyze financial data, generate investment reports, and provide market insights based on current trends..."
+                className="w-full h-32 p-4 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-phil-purple focus:border-transparent"
+              />
+              <p className="text-sm text-gray-500">
+                Provide details about what tasks your agent should perform, what data it should work with, and what kind of responses you expect.
+              </p>
             </div>
           </div>
         );

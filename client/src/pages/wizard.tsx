@@ -125,7 +125,7 @@ export default function Wizard() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <WizardProgress currentStep={currentStep} totalSteps={6} />
+      <WizardProgress currentStep={currentStep} totalSteps={7} />
 
       <Card className="bg-white shadow-lg mt-8">
         <CardContent className="p-8">
@@ -135,6 +135,8 @@ export default function Wizard() {
             updateConfig={updateConfig}
             agentName={agentName}
             setAgentName={setAgentName}
+            userPrompt={userPrompt}
+            setUserPrompt={setUserPrompt}
           />
 
           <div className="mt-8 flex justify-between">
