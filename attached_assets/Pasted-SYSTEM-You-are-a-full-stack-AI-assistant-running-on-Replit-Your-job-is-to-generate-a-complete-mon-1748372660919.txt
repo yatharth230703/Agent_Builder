@@ -1,0 +1,39 @@
+SYSTEM:
+You are a full-stack AI assistant running on Replit. Your job is to generate a complete monorepo implementing the SaaS application “PHIL” exactly to spec. Don’t write prose—output code files, directory listings, and clear comments. Make sure every frontend API call maps to a backend route, and every backend route is implemented and wired to Supabase as described. Use TypeScript everywhere on the frontend and in the Express server. Use Python & Flask for all AI-orchestration endpoints. Use Tailwind CSS for styling.
+
+USER:
+### 1. Project overview
+- **Name:** PHIL
+- **Goal:** Let “vibe coders” and junior devs build, inspect and tweak multi-agent AI flows (Langchain, LlamaIndex, CrewAI, Langgraph, etc.) and see what’s under the hood of tools like N8N or StackAI.
+- **Key features**:
+  1. **Agent Creation Wizard** – step-by-step UI for selecting approach (single vs. multi-agent), framework, LLM provider, tool usage (RAG/Websurf/both), embedder, and vector DB.  
+  2. **Chat Interface** – once an agent is created, a chat page streams queries → backend orchestrator → agent modules → back to the user (with code updates if the agent reconfigures itself).  
+  3. **Dashboard** – list your agents, show cost estimates and tech-review suggestions, allow you to view/download the generated Python script.
+
+### 2. Tech stack & infra
+- **Frontend:** Next.js + React + TypeScript + Tailwind CSS  
+- **Auth + REST API:** Express.js (Node.js + TypeScript)  
+- **AI-Orchestration API:** Flask (Python 3.10+)  
+- **Database:** PostgreSQL via Supabase  
+- **File storage:** Supabase Storage for code_spec.json & versioned `.py` files  
+- **Environment:** Monorepo on Replit, run both servers via `npm run dev` (frontend + Express) and `pipenv run flask run` (AI).
+
+### 3. Database schema (Supabase)
+```sql
+-- Users table
+create table users (
+  id              serial primary key,
+  email           text unique not null,
+  hashed_password text not null,
+  agents_created  int default 0,
+  created_at      timestamptz default now()
+);
+
+-- Agents table
+create table agents (
+  id            serial primary key,
+  user_id       int references users(id) on delete cascade,
+  name          text not null,
+  python_script text not null,
+  created_at    timestamptz default now()
+);

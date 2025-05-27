@@ -1,0 +1,56 @@
+5. Frontend ↔ Backend wiring
+Wizard pages
+
+On each step, store selections in React state.
+
+On “Finish,” POST /agents (Auth server) with { name, config: { approach, framework, llmProvider, toolUse, embedder, vectorDb } }.
+
+Auth server stores an entry in Supabase agents with a placeholder python_script, returns agent id.
+
+AI-orchestration bootstrap
+
+After agent creation, Next.js calls Flask at POST /api/ai/recommendations with body { prompt: userPrompt } and user’s filters (based on wizard).
+
+Flask runs recommendations_agent.get_recommendations, returns XML/JSON. Frontend presents options & justifications to the user.
+
+“Walk me through code”
+
+Frontend POST /api/ai/walkthrough with { optionsJson, userPrompt }.
+
+Flask runs walk_me_through_code_agent, streams SSE events back; display step-by-step in the UI.
+
+On complete, Flask returns name, CLI snippet, Python code, conclusion.
+
+Frontend saves Python code via PUT /agents/:id (Auth server).
+
+Chat page
+
+Frontend opens /agents/[id]/chat.tsx, establishes SSE to POST /api/ai/chat with { agentId, message, contextUrls }.
+
+Flask uses query_perplexity, then perhaps re-calls custom code if needed, streams back assistant messages and code diffs.
+
+React applies diffs to the displayed code window, scrolls chat.
+
+Tech review & cost analysis
+
+Frontend calls POST /api/ai/tech-review and POST /api/ai/cost-analysis with { pythonScript }.
+
+Display sections: ScriptSummary, TechnicalImprovements, FeatureSuggestions, Conclusion & cost breakdown.
+
+6. Express Auth + Supabase integration
+supabase-js client in server-auth/src/index.ts
+
+Middleware to verify JWT on protected routes
+
+Hash passwords with bcrypt
+
+Expose Swagger or typed route definitions
+
+7. Flask AI-Orchestrator
+Use flask-sse or flask-cors
+
+Load your eight *_agent.py modules
+
+Each route unmarshals XML→JSON, runs xml_to_json, returns JSON (or SSE chunks)
+
+Document required env vars: PERPLEXITY_API_KEY, SUPABASE_URL, SUPABASE_KEY, etc.
