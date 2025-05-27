@@ -82,7 +82,7 @@ def query_perplexity(search_filter_custom: list, code: str , query:str , message
     messages_incoming.extend(messages_static)
 
     url = "https://api.perplexity.ai/chat/completions"
-    headers = {"Authorization":  "Bearer  + os.getenv("PERPLEXITY_API_KEY") + "}
+    headers = {"Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"}
     payload = {
         "model": "sonar-reasoning-pro",
         "messages": messages_system,
