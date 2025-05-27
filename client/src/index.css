@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 45 38% 95%; /* #FEF3C7 - phil-cream */
+  --foreground: 220 9% 15%; /* #1F2937 - phil-dark */
+  --muted: 210 40% 95%;
+  --muted-foreground: 215 16% 47%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 9% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 9% 15%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --primary: 262 83% 68%; /* #8B5CF6 - phil-purple */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 38% 95%;
+  --secondary-foreground: 220 9% 15%;
+  --accent: 262 83% 68%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 262 83% 68%;
+  --radius: 0.75rem;
+  
+  /* PHIL custom colors */
+  --phil-purple: 262 83% 68%; /* #8B5CF6 */
+  --phil-pink: 330 81% 60%; /* #EC4899 */
+  --phil-cream: 45 38% 95%; /* #FEF3C7 */
+  --phil-light-purple: 262 51% 78%; /* #C4B5FD */
+  --phil-surface: 220 14% 96%; /* #F3F4F6 */
+  --phil-dark: 220 9% 15%; /* #1F2937 */
+}
+
+.dark {
+  --background: 220 9% 15%;
+  --foreground: 0 0% 98%;
+  --muted: 220 6% 22%;
+  --muted-foreground: 215 20% 65%;
+  --popover: 220 9% 15%;
+  --popover-foreground: 0 0% 98%;
+  --card: 220 9% 15%;
+  --card-foreground: 0 0% 98%;
+  --border: 220 6% 22%;
+  --input: 220 6% 22%;
+  --primary: 262 83% 68%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 6% 22%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 262 83% 68%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 262 83% 68%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background: hsl(var(--phil-cream));
+    color: hsl(var(--phil-dark));
+  }
+}
+
+@layer utilities {
+  .phil-purple {
+    background: hsl(var(--phil-purple));
+  }
+  
+  .phil-pink {
+    background: hsl(var(--phil-pink));
+  }
+  
+  .phil-cream {
+    background: hsl(var(--phil-cream));
+  }
+  
+  .phil-light-purple {
+    background: hsl(var(--phil-light-purple));
+  }
+  
+  .phil-surface {
+    background: hsl(var(--phil-surface));
+  }
+  
+  .phil-dark {
+    color: hsl(var(--phil-dark));
+  }
+  
+  .text-phil-purple {
+    color: hsl(var(--phil-purple));
+  }
+  
+  .text-phil-pink {
+    color: hsl(var(--phil-pink));
+  }
+  
+  .text-phil-light-purple {
+    color: hsl(var(--phil-light-purple));
+  }
+  
+  .text-phil-dark {
+    color: hsl(var(--phil-dark));
+  }
+  
+  .bg-phil-purple {
+    background: hsl(var(--phil-purple));
+  }
+  
+  .bg-phil-pink {
+    background: hsl(var(--phil-pink));
+  }
+  
+  .bg-phil-cream {
+    background: hsl(var(--phil-cream));
+  }
+  
+  .bg-phil-light-purple {
+    background: hsl(var(--phil-light-purple));
+  }
+  
+  .bg-phil-surface {
+    background: hsl(var(--phil-surface));
+  }
+  
+  .border-phil-purple {
+    border-color: hsl(var(--phil-purple));
+  }
+  
+  .border-phil-pink {
+    border-color: hsl(var(--phil-pink));
+  }
+}
