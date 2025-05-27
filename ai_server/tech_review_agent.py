@@ -1,3 +1,6 @@
+import os
+import requests
+
 def run_tech_review(search_filter_context: list, code: str) -> str:
     
     
@@ -63,7 +66,7 @@ def run_tech_review(search_filter_context: list, code: str) -> str:
         """
 
     url = "https://api.perplexity.ai/chat/completions"
-    headers = {"Authorization":  "Bearer  + os.getenv("PERPLEXITY_API_KEY") + "}
+    headers = {"Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"}
     payload = {
         "model": "sonar-pro",
         "messages": [

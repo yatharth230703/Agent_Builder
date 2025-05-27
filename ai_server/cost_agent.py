@@ -1,3 +1,6 @@
+import os
+import requests
+
 def run_cost_analysis(code: str) -> str:
     AGENT_COST_PROMPT = f"""
         You are a world-class AI engineer and have been analysing LLM-powered systems for the last decade.
@@ -58,7 +61,7 @@ def run_cost_analysis(code: str) -> str:
         """
 
     url = "https://api.perplexity.ai/chat/completions"
-    headers = {"Authorization":  "Bearer  + os.getenv("PERPLEXITY_API_KEY") + "}
+    headers = {"Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"}
     payload = {
         "model": "sonar-pro",
         "messages": [

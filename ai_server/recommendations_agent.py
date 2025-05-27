@@ -1,3 +1,6 @@
+import os
+import requests
+
 def get_recommendations(recommendations_prompt: str, user_prompt: str) -> str:
     RECOMMENDATIONS_PROMPT  = f""" 
         You are a world class AI agent researcher and know your way around all the frameworks in existance . You are tasked with recommending the appropriate
@@ -66,7 +69,7 @@ def get_recommendations(recommendations_prompt: str, user_prompt: str) -> str:
         
         """
     url = "https://api.perplexity.ai/chat/completions"
-    headers = {"Authorization":  "Bearer  + os.getenv("PERPLEXITY_API_KEY") + "}
+    headers = {"Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"}
     payload = {
         "model": "sonar-pro",
         "messages": [

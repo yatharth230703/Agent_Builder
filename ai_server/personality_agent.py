@@ -1,7 +1,10 @@
+import os
+import requests
+
 def stream_personality_response(text):
     url = "https://api.perplexity.ai/chat/completions"
     headers = {
-        "Authorization": "Bearer  + os.getenv("PERPLEXITY_API_KEY") + ",
+        "Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}",
     }
     payload = {
         "model": "sonar",
