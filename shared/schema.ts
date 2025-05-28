@@ -5,29 +5,27 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  agentsCreated: integer("agents_created").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
+  hashedPassword: text("hashed_password").notNull(),
+  agentsCreated: integer("agents_created").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const agents = pgTable("agents", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   name: text("name").notNull(),
-  config: jsonb("config").notNull(),
-  pythonScript: text("python_script").default(""),
-  createdAt: timestamp("created_at").defaultNow(),
+  pythonScript: text("python_script").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
-  password: true,
+  hashedPassword: true,
 });
 
 export const insertAgentSchema = createInsertSchema(agents).pick({
   userId: true,
   name: true,
-  config: true,
   pythonScript: true,
 });
 
