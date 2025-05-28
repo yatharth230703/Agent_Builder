@@ -13,16 +13,22 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   }
 
   try {
+    // Verify the JWT token with Supabase
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
     
     if (error || !user) {
+      console.log('Auth error:', error);
       return res.status(403).json({ message: "Invalid or expired token" });
     }
     
+    // Store user info for use in routes
     req.user = user;
-    req.userId = user.id;
+    req.userId = user.id; // This is the Supabase user ID (UUID format)
+    
+    console.log('Authenticated user:', user.email, 'ID:', user.id);
     next();
   } catch (error) {
+    console.log('Token validation error:', error);
     return res.status(403).json({ message: "Invalid or expired token" });
   }
 };

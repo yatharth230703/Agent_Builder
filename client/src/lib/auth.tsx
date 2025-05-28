@@ -36,24 +36,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (data: LoginForm) => {
+    console.log('Attempting login with:', data.email);
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
     
+    console.log('Login successful:', authData.user?.email);
     setUser(authData.user);
   };
 
   const register = async (data: RegisterForm) => {
+    console.log('Attempting registration with:', data.email);
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
     
+    console.log('Registration successful:', authData.user?.email);
     setUser(authData.user);
   };
 

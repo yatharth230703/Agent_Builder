@@ -17,6 +17,10 @@ export async function apiRequest(
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   
+  console.log('API Request - Session exists:', !!session);
+  console.log('API Request - Token exists:', !!token);
+  console.log('API Request - User:', session?.user?.email);
+  
   const res = await fetch(url, {
     method,
     headers: {
