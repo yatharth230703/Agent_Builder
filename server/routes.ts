@@ -73,11 +73,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/agents", authenticateToken, async (req: any, res) => {
     try {
+      console.log('Creating agent for user:', req.userId);
+      
       const agentData = {
-        user_id: req.userId,
+        user_id: req.userId, // This is the Supabase auth user ID (UUID)
         name: req.body.name || 'Custom Agent',
         python_script: req.body.pythonScript || '# Generated agent code will go here'
       };
+      
+      console.log('Agent data:', agentData);
       
       const { data: agent, error } = await supabaseAdmin
         .from('agents')
@@ -85,10 +89,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
       
+      console.log('Agent created successfully:', agent);
       res.status(201).json({ agent });
     } catch (error: any) {
+      console.error('Failed to create agent:', error);
       res.status(400).json({ message: error.message || "Failed to create agent" });
     }
   });
