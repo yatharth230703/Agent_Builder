@@ -41,7 +41,7 @@ export default function CustomUrls() {
     setUrls(newUrls);
   };
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     const validUrls = urls.filter(url => url.trim() !== "");
     
     if (validUrls.length === 0) {
@@ -53,9 +53,49 @@ export default function CustomUrls() {
       return;
     }
 
-    // Store URLs and proceed to wizard
-    localStorage.setItem("customUrls", JSON.stringify(validUrls));
-    setLocation("/wizard");
+    try {
+      // Create agent directly with custom URLs
+      const response = await fetch('/api/agents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'Custom Agent',
+          prompt: userPrompt,
+          config: {
+            approach: 'custom',
+            framework: 'vanilla',
+            llmProvider: 'perplexity',
+            toolUse: 'enabled',
+            embedder: 'default',
+            vectorDb: 'memory',
+            customUrls: validUrls
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create agent');
+      }
+
+      const agent = await response.json();
+      
+      toast({
+        title: "Agent created!",
+        description: "Your agent is ready to chat",
+      });
+
+      // Navigate directly to chat
+      setLocation(`/agents/${agent.id}/chat`);
+      
+    } catch (error) {
+      toast({
+        title: "Error creating agent",
+        description: "Please try again or use the wizard flow",
+        variant: "destructive",
+      });
+    }
   };
 
   const isValidUrl = (url: string): boolean => {
@@ -155,7 +195,7 @@ export default function CustomUrls() {
                 onClick={handleProceed}
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white"
               >
-                Proceed to Agent Builder
+                Create Agent & Start Chat
               </Button>
             </div>
           </CardContent>
