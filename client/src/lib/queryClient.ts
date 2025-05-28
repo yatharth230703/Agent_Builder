@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { supabase } from "./supabase";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,7 +13,10 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const token = localStorage.getItem("token");
+  // Get Supabase token instead of localStorage token
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  
   const res = await fetch(url, {
     method,
     headers: {
@@ -33,7 +37,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const token = localStorage.getItem("token");
+    // Get Supabase token instead of localStorage token
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    
     const res = await fetch(queryKey[0] as string, {
       headers: {
         ...(token ? { "Authorization": `Bearer ${token}` } : {}),
