@@ -64,7 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     console.log('Registration successful:', authData.user?.email);
+    console.log('Session after registration:', authData.session);
     setUser(authData.user);
+    
+    // Wait a moment for session to be established
+    setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session check after registration:', !!session);
+    }, 1000);
   };
 
   const logout = async () => {
