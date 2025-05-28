@@ -1,29 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { apiRequest } from "./queryClient";
-import type { User, LoginForm, RegisterForm } from "@shared/schema";
-
-// Auth utility functions
-export function getAuthToken(): string | null {
-  return localStorage.getItem("token");
-}
-
-export function setAuthToken(token: string): void {
-  localStorage.setItem("token", token);
-}
-
-export function removeAuthToken(): void {
-  localStorage.removeItem("token");
-}
-
-export function getAuthHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  if (token) {
-    return {
-      "Authorization": `Bearer ${token}`,
-    };
-  }
-  return {};
-}
+import { ReactNode, createContext, useContext, useState, useEffect } from "react";
+import { LoginForm, RegisterForm } from "../../../shared/schema";
+import { supabase } from "./supabase";
+import type { User } from "@supabase/supabase-js";
 
 interface AuthContextType {
   user: User | null;
@@ -37,54 +15,50 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      // Verify token and get user info
-      checkAuth();
-    }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const checkAuth = async () => {
-    try {
-      const response = await apiRequest("GET", "/api/auth/me");
-      const data = await response.json();
-      setUser(data.user);
-    } catch (error) {
-      localStorage.removeItem("token");
-    }
-  };
-
   const login = async (data: LoginForm) => {
-    setIsLoading(true);
-    try {
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      const result = await response.json();
-      
-      localStorage.setItem("token", result.token);
-      setUser(result.user);
-    } finally {
-      setIsLoading(false);
-    }
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (error) throw error;
+    
+    setUser(authData.user);
   };
 
   const register = async (data: RegisterForm) => {
-    setIsLoading(true);
-    try {
-      const response = await apiRequest("POST", "/api/auth/register", data);
-      const result = await response.json();
-      
-      localStorage.setItem("token", result.token);
-      setUser(result.user);
-    } finally {
-      setIsLoading(false);
-    }
+    const { data: authData, error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (error) throw error;
+    
+    setUser(authData.user);
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
   };
 
@@ -101,4 +75,9 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+}
+
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }

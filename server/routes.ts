@@ -1,13 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { insertUserSchema, loginSchema, insertAgentSchema, registerSchema } from "@shared/schema";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import { supabaseAdmin } from "./supabase";
+import { insertAgentSchema } from "@shared/schema";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
-
-// Middleware to verify JWT token
+// Middleware to verify Supabase JWT token
 const authenticateToken = async (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -17,8 +13,14 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
-    req.userId = decoded.userId;
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    
+    if (error || !user) {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
+    
+    req.user = user;
+    req.userId = user.id;
     next();
   } catch (error) {
     return res.status(403).json({ message: "Invalid or expired token" });
@@ -26,82 +28,16 @@ const authenticateToken = async (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth routes
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const validatedData = registerSchema.parse(req.body);
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(validatedData.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "User already exists" });
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
-      const user = await storage.createUser({
-        email: validatedData.email,
-        password: hashedPassword,
-      });
-
-      // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
-      
-      res.status(201).json({ 
-        user: { id: user.id, email: user.email, agentsCreated: user.agentsCreated },
-        token 
-      });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || "Registration failed" });
-    }
-  });
-
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const validatedData = loginSchema.parse(req.body);
-      
-      const user = await storage.getUserByEmail(validatedData.email);
-      if (!user) {
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
-
-      const validPassword = await bcrypt.compare(validatedData.password, user.password);
-      if (!validPassword) {
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
-
-      // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
-      
-      res.json({ 
-        user: { id: user.id, email: user.email, agentsCreated: user.agentsCreated },
-        token 
-      });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || "Login failed" });
-    }
-  });
-
-  app.get("/api/auth/me", authenticateToken, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      res.json({ 
-        user: { id: user.id, email: user.email, agentsCreated: user.agentsCreated }
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to get user" });
-    }
-  });
-
-  // Agent routes
+  // Agent routes - auth handled by Supabase directly
   app.get("/api/agents", authenticateToken, async (req: any, res) => {
     try {
-      const agents = await storage.getAgentsByUserId(req.userId);
+      const { data: agents, error } = await supabaseAdmin
+        .from('agents')
+        .select('*')
+        .eq('user_id', req.userId);
+
+      if (error) throw error;
+      
       res.json({ agents });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to get agents" });
@@ -111,9 +47,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/agents/:id", authenticateToken, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      const agent = await storage.getAgent(agentId);
       
-      if (!agent || agent.userId !== req.userId) {
+      const { data: agent, error } = await supabaseAdmin
+        .from('agents')
+        .select('*')
+        .eq('id', agentId)
+        .eq('user_id', req.userId)
+        .single();
+
+      if (error || !agent) {
         return res.status(404).json({ message: "Agent not found" });
       }
 
@@ -125,12 +67,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/agents", authenticateToken, async (req: any, res) => {
     try {
-      const validatedData = insertAgentSchema.parse({
-        ...req.body,
-        userId: req.userId
-      });
+      const agentData = {
+        user_id: req.userId,
+        name: req.body.name || 'Custom Agent',
+        python_script: req.body.pythonScript || '# Generated agent code will go here'
+      };
       
-      const agent = await storage.createAgent(validatedData);
+      const { data: agent, error } = await supabaseAdmin
+        .from('agents')
+        .insert(agentData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
       res.status(201).json({ agent });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to create agent" });
@@ -140,14 +90,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/agents/:id", authenticateToken, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      const agent = await storage.getAgent(agentId);
       
-      if (!agent || agent.userId !== req.userId) {
-        return res.status(404).json({ message: "Agent not found" });
-      }
+      const { data: agent, error } = await supabaseAdmin
+        .from('agents')
+        .update(req.body)
+        .eq('id', agentId)
+        .eq('user_id', req.userId)
+        .select()
+        .single();
 
-      const updatedAgent = await storage.updateAgent(agentId, req.body);
-      res.json({ agent: updatedAgent });
+      if (error) throw error;
+      
+      res.json({ agent });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to update agent" });
     }
@@ -156,18 +110,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/agents/:id", authenticateToken, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      const agent = await storage.getAgent(agentId);
       
-      if (!agent || agent.userId !== req.userId) {
-        return res.status(404).json({ message: "Agent not found" });
-      }
+      const { error } = await supabaseAdmin
+        .from('agents')
+        .delete()
+        .eq('id', agentId)
+        .eq('user_id', req.userId);
 
-      const deleted = await storage.deleteAgent(agentId);
-      if (deleted) {
-        res.json({ message: "Agent deleted successfully" });
-      } else {
-        res.status(500).json({ message: "Failed to delete agent" });
-      }
+      if (error) throw error;
+      
+      res.json({ message: "Agent deleted successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to delete agent" });
     }
