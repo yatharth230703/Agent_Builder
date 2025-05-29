@@ -5,6 +5,8 @@ import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { Trash2, Plus, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+
 
 export default function CustomUrls() {
   const [userPrompt, setUserPrompt] = useState("");
@@ -42,8 +44,8 @@ export default function CustomUrls() {
   };
 
   const handleProceed = async () => {
-    const validUrls = urls.filter(url => url.trim() !== "");
-    
+    const validUrls = urls.filter((url) => url.trim() !== "");
+
     if (validUrls.length === 0) {
       toast({
         title: "No URLs provided",
@@ -53,43 +55,52 @@ export default function CustomUrls() {
       return;
     }
 
+    // 1) Get Supabase session (includes the JWT)
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      return toast({
+        title: "Not logged in",
+        description: "Please log in before creating an agent",
+        variant: "destructive",
+      });
+    }
+
+    // 2) Send the POST with Authorization header
     try {
-      // Create agent directly with custom URLs
-      const response = await fetch('/api/agents', {
-        method: 'POST',
+      const response = await fetch("/api/agents", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          name: 'Custom Agent',
+          name: "Custom Agent",
           prompt: userPrompt,
           config: {
-            approach: 'custom',
-            framework: 'vanilla',
-            llmProvider: 'perplexity',
-            toolUse: 'enabled',
-            embedder: 'default',
-            vectorDb: 'memory',
-            customUrls: validUrls
-          }
+            approach: "custom",
+            framework: "vanilla",
+            llmProvider: "perplexity",
+            toolUse: "enabled",
+            embedder: "default",
+            vectorDb: "memory",
+            customUrls: validUrls,
+          },
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create agent');
-      }
+      if (!response.ok) throw new Error();
 
-      const agent = await response.json();
-      
+      const { agent } = await response.json();
       toast({
         title: "Agent created!",
         description: "Your agent is ready to chat",
       });
-
-      // Navigate directly to chat
       setLocation(`/agents/${agent.id}/chat`);
-      
-    } catch (error) {
+    } catch {
       toast({
         title: "Error creating agent",
         description: "Please try again or use the wizard flow",
@@ -97,6 +108,7 @@ export default function CustomUrls() {
       });
     }
   };
+
 
   const isValidUrl = (url: string): boolean => {
     try {

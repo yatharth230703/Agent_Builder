@@ -3,10 +3,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
+import { Textarea } from "@/components/ui/textarea";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { Bot, User, Send, Paperclip, Link, Copy, Download, Trash2, CheckCircle, AlertTriangle, DollarSign } from "lucide-react";
+import { Bot, User, Send, Paperclip, Link, Copy, Download, Trash2, CheckCircle, AlertTriangle, DollarSign, Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ChatMessage {
   id: string;
@@ -27,8 +29,14 @@ export default function Chat() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [contextUrls, setContextUrls] = useState<string[]>([]);
+  const [newContextUrl, setNewContextUrl] = useState("");
+  const [analysisData, setAnalysisData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: agentData, isLoading } = useQuery({
     queryKey: ["/api/agents", id],
@@ -43,6 +51,52 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  // Connect to AI server for chat
+  const chatMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const response = await fetch('http://localhost:5000/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: id,
+          message,
+          contextUrls,
+          currentCode: generatedCode,
+          messagesHistory: messages.map(m => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.content
+          }))
+        })
+      });
+      if (!response.ok) throw new Error('AI service unavailable');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        content: data.response || "I've processed your request successfully!",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, aiMessage]);
+      if (data.generatedCode) {
+        setGeneratedCode(data.generatedCode);
+      }
+      if (data.analysis) {
+        setAnalysisData(data.analysis);
+      }
+    },
+    onError: () => {
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        content: "I'm having trouble connecting to the AI service right now. Please try again in a moment.",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  });
+
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
@@ -54,51 +108,11 @@ export default function Chat() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const messageToSend = inputValue;
     setInputValue("");
     setIsTyping(true);
 
-    try {
-      // Call AI orchestration service
-      const response = await fetch('http://localhost:5001/api/ai/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          agentId: id,
-          message: inputValue,
-          contextUrls: [],
-          currentCode: sampleCode,
-          messagesHistory: messages.map(m => ({
-            role: m.sender === "user" ? "user" : "assistant",
-            content: m.content
-          }))
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        const aiMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          sender: "ai",
-          content: data.response || "I've processed your request successfully!",
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        throw new Error(data.error || 'AI service unavailable');
-      }
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: "ai",
-        content: "I'm having trouble connecting to the AI service right now. Please try again in a moment.",
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
-    
+    chatMutation.mutate(messageToSend);
     setIsTyping(false);
   };
 
@@ -109,8 +123,56 @@ export default function Chat() {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check file type - only .py and image files
+    const allowedTypes = ['.py', '.png', '.jpg', '.jpeg', '.gif'];
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    
+    if (!allowedTypes.includes(fileExtension)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload only Python (.py) files or image files.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const fileText = await file.text();
+      const fileContent = `[File: ${file.name}]\n${fileText}`;
+      setInputValue(prev => prev + '\n' + fileContent);
+      toast({
+        title: "File attached",
+        description: `${file.name} has been added to your message.`,
+      });
+    } catch (error) {
+      toast({
+        title: "File upload failed",
+        description: "Could not read the file content.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addContextUrl = () => {
+    if (!newContextUrl.trim()) return;
+    setContextUrls(prev => [...prev, newContextUrl.trim()]);
+    setNewContextUrl("");
+    toast({
+      title: "Context URL added",
+      description: "The URL will be used to enhance AI responses.",
+    });
+  };
+
+  const removeContextUrl = (index: number) => {
+    setContextUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
   const copyCode = () => {
-    navigator.clipboard.writeText(sampleCode);
+    navigator.clipboard.writeText(generatedCode);
     toast({
       title: "Code copied",
       description: "The code has been copied to your clipboard.",
@@ -127,105 +189,67 @@ export default function Chat() {
   };
 
   const agent = agentData?.agent;
-  const sampleCode = `# ${agent?.name || "AI Agent"}
-from langchain.agents import initialize_agent
-from langchain.llms import OpenAI
-from langchain.tools import Tool
-
-class AIAssistant:
-    def __init__(self):
-        self.llm = OpenAI(temperature=0.7)
-        self.tools = [
-            Tool(
-                name="Analysis",
-                description="Analyze data and trends",
-                func=self.analyze_data
-            ),
-            Tool(
-                name="Content Generator", 
-                description="Generate helpful content",
-                func=self.generate_content
-            )
-        ]
-        
-    def analyze_data(self, query):
-        # Analysis logic here
-        return f"Analysis for: {query}"
-        
-    def generate_content(self, brief):
-        # Content generation logic
-        return f"Generated content for: {brief}"
-        
-    def run(self, user_input):
-        agent = initialize_agent(
-            self.tools,
-            self.llm,
-            agent="zero-shot-react-description"
-        )
-        return agent.run(user_input)`;
+  
+  // Initialize generated code with agent's python_script or empty
+  useEffect(() => {
+    if (agent?.python_script && !generatedCode) {
+      setGeneratedCode(agent.python_script);
+    }
+  }, [agent, generatedCode]);
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
-            <div className="lg:col-span-2 bg-gray-200 rounded-2xl"></div>
-            <div className="bg-gray-200 rounded-2xl"></div>
-          </div>
-        </div>
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-pulse text-lg">Loading agent...</div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
-        {/* Chat Panel */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg flex flex-col">
+    <div className="h-screen flex flex-col">
+      {/* Main Content Grid - No Footer, Full Height */}
+      <div className="flex-1 grid grid-cols-12 gap-4 p-4">
+        
+        {/* Chat Panel - Takes up 6 columns */}
+        <div className="col-span-6 bg-white rounded-2xl shadow-lg flex flex-col">
           {/* Chat Header */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-phil-purple rounded-full flex items-center justify-center">
-                  <Bot className="text-white h-6 w-6" />
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-phil-purple rounded-full flex items-center justify-center">
+                  <Bot className="text-white h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-phil-dark">
+                  <h3 className="text-lg font-bold text-phil-dark">
                     {agent?.name || "AI Assistant"}
                   </h3>
-                  <p className="text-gray-600 text-sm">Online • Ready to chat</p>
+                  <p className="text-gray-600 text-xs">Online • Ready to chat</p>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <Button variant="ghost" size="sm" onClick={clearChat}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Download className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button variant="ghost" size="sm" onClick={clearChat}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
-          {/* Chat Messages */}
-          <div className="flex-1 p-6 overflow-y-auto space-y-4">
+          {/* Chat Messages - Flexible height */}
+          <div className="flex-1 p-4 overflow-y-auto space-y-3">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex items-start space-x-3 ${
+                className={`flex items-start space-x-2 ${
                   message.sender === "user" ? "justify-end" : ""
                 }`}
               >
                 {message.sender === "ai" && (
-                  <div className="w-8 h-8 bg-phil-purple rounded-full flex items-center justify-center flex-shrink-0">
-                    <Bot className="text-white h-4 w-4" />
+                  <div className="w-7 h-7 bg-phil-purple rounded-full flex items-center justify-center flex-shrink-0">
+                    <Bot className="text-white h-3 w-3" />
                   </div>
                 )}
                 
-                <div className={`flex-1 max-w-md ${message.sender === "user" ? "order-first" : ""}`}>
+                <div className={`max-w-sm ${message.sender === "user" ? "order-first" : ""}`}>
                   <div
-                    className={`rounded-2xl p-4 ${
+                    className={`rounded-2xl p-3 text-sm ${
                       message.sender === "ai"
                         ? "bg-purple-50 text-phil-dark rounded-tl-none"
                         : "bg-phil-pink text-white rounded-tr-none ml-auto"
@@ -244,19 +268,19 @@ class AIAssistant:
                 </div>
 
                 {message.sender === "user" && (
-                  <div className="w-8 h-8 bg-phil-pink rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="text-white h-4 w-4" />
+                  <div className="w-7 h-7 bg-phil-pink rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="text-white h-3 w-3" />
                   </div>
                 )}
               </div>
             ))}
 
             {isTyping && (
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-phil-purple rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="text-white h-4 w-4" />
+              <div className="flex items-start space-x-2">
+                <div className="w-7 h-7 bg-phil-purple rounded-full flex items-center justify-center flex-shrink-0">
+                  <Bot className="text-white h-3 w-3" />
                 </div>
-                <div className="bg-purple-50 rounded-2xl rounded-tl-none p-4">
+                <div className="bg-purple-50 rounded-2xl rounded-tl-none p-3">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-phil-purple rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-phil-purple rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
@@ -270,89 +294,137 @@ class AIAssistant:
           </div>
 
           {/* Chat Input */}
-          <div className="p-6 border-t border-gray-200">
-            <div className="flex space-x-4">
-              <Input
-                type="text"
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex space-x-2">
+              <Textarea
                 placeholder="Type your message..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="flex-1 border-gray-300 focus:ring-purple-600 focus:border-purple-600"
+                className="flex-1 min-h-[60px] max-h-[120px] border-gray-300 focus:ring-purple-600 focus:border-purple-600 resize-none"
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim()}
-                className="bg-phil-purple hover:bg-purple-700 text-white"
+                disabled={!inputValue.trim() || chatMutation.isPending}
+                className="bg-phil-purple hover:bg-purple-700 text-white self-end"
               >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex items-center mt-3 space-x-4">
-              <Button variant="ghost" size="sm" className="text-gray-500 hover:text-purple-600">
+            <div className="flex items-center mt-2 space-x-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".py,.png,.jpg,.jpeg,.gif"
+                className="hidden"
+              />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => fileInputRef.current?.click()}
+                className="text-gray-500 hover:text-purple-600"
+              >
                 <Paperclip className="h-4 w-4 mr-1" />
                 Attach File
-              </Button>
-              <Button variant="ghost" size="sm" className="text-gray-500 hover:text-purple-600">
-                <Link className="h-4 w-4 mr-1" />
-                Add Context URL
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Code Panel */}
-        <div className="bg-white rounded-2xl shadow-lg flex flex-col">
-          <div className="p-6 border-b border-gray-200">
+        {/* Code Panel - Takes up 4 columns */}
+        <div className="col-span-4 bg-white rounded-2xl shadow-lg flex flex-col">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-phil-dark">Generated Code</h3>
               <div className="flex space-x-2">
                 <Button variant="ghost" size="sm" onClick={copyCode}>
                   <Copy className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm">
-                  <Download className="h-4 w-4" />
-                </Button>
               </div>
             </div>
-            <div className="flex space-x-2 mt-4">
-              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+            <div className="flex space-x-2 mt-2">
+              <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs">
                 Python
-              </Badge>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                {agent?.config?.framework || "Langchain"}
               </Badge>
             </div>
           </div>
           
-          <div className="flex-1 p-6 overflow-y-auto">
-            <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-sm font-mono overflow-x-auto">
-              <code>{sampleCode}</code>
+          <div className="flex-1 p-4 overflow-y-auto">
+            <pre className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto h-full">
+              <code>{generatedCode || "# Code will appear here after AI generates it"}</code>
             </pre>
           </div>
+        </div>
 
-          {/* Tech Review Panel */}
-          <div className="p-6 border-t border-gray-200">
-            <h4 className="font-bold text-phil-dark mb-3">Quick Analysis</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <span className="text-gray-700">Uses standard patterns</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                <span className="text-gray-700">Consider adding error handling</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <DollarSign className="h-4 w-4 text-blue-500" />
-                <span className="text-gray-700">Est. cost: $0.05/query</span>
-              </div>
+        {/* Analysis Panel - Takes up 2 columns (Side panel) */}
+        <div className="col-span-2 bg-white rounded-2xl shadow-lg flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <h4 className="font-bold text-phil-dark text-sm">Analysis</h4>
+          </div>
+          <div className="flex-1 p-4">
+            <div className="space-y-3 text-xs">
+              {analysisData ? (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span className="text-gray-700">{analysisData.patterns || "Standard patterns"}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                    <span className="text-gray-700">{analysisData.suggestions || "Consider error handling"}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="h-3 w-3 text-blue-500" />
+                    <span className="text-gray-700">{analysisData.cost || "Est. cost: $0.05/query"}</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-500 text-xs">Analysis will appear after code generation</p>
+              )}
             </div>
-            <Button
-              className="w-full mt-4 bg-phil-purple hover:bg-purple-700 text-white"
-            >
-              Run Full Analysis
-            </Button>
+          </div>
+        </div>
+
+        {/* Context URLs Panel - Takes full width below chat */}
+        <div className="col-span-6 bg-white rounded-2xl shadow-lg">
+          <div className="p-4 border-b border-gray-200">
+            <h4 className="font-bold text-phil-dark text-sm">Context URLs</h4>
+          </div>
+          <div className="p-4">
+            <div className="flex space-x-2 mb-3">
+              <Input
+                placeholder="Add documentation URL..."
+                value={newContextUrl}
+                onChange={(e) => setNewContextUrl(e.target.value)}
+                className="flex-1 text-sm"
+              />
+              <Button
+                onClick={addContextUrl}
+                size="sm"
+                className="bg-phil-purple hover:bg-purple-700 text-white"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-2 max-h-24 overflow-y-auto">
+              {contextUrls.map((url, index) => (
+                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded text-xs">
+                  <span className="truncate flex-1">{url}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeContextUrl(index)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              {contextUrls.length === 0 && (
+                <p className="text-gray-500 text-xs">No context URLs added yet</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

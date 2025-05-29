@@ -140,6 +140,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Chat endpoint - connects to Python AI server
+  app.post("/api/ai/chat", authenticateToken, async (req: any, res) => {
+    try {
+      console.log('AI Chat request received:', req.body);
+      
+      // Forward request to Python AI server
+      const aiResponse = await fetch('http://localhost:5001/chat_with_agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_prompt: req.body.message,
+          search_filter_custom: req.body.contextUrls || [],
+          code: req.body.currentCode || '',
+          messages_incoming: req.body.messagesHistory || []
+        })
+      });
+
+      if (!aiResponse.ok) {
+        throw new Error(`AI server responded with status: ${aiResponse.status}`);
+      }
+
+      const aiData = await aiResponse.json();
+      console.log('AI server response:', aiData);
+      
+      // Update agent with generated code if provided
+      if (aiData.generatedCode && req.body.agentId) {
+        await supabaseAdmin
+          .from('agents')
+          .update({ python_script: aiData.generatedCode })
+          .eq('id', parseInt(req.body.agentId))
+          .eq('user_id', req.userId);
+      }
+
+      res.json({
+        success: true,
+        response: aiData.response || aiData.message,
+        generatedCode: aiData.generatedCode,
+        analysis: aiData.analysis
+      });
+    } catch (error: any) {
+      console.error('AI chat error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || "AI service unavailable" 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
