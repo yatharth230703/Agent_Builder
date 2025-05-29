@@ -188,7 +188,7 @@ export default function Chat() {
     }]);
   };
 
-  const agent = agentData?.agent;
+  const agent = (agentData as any)?.agent;
   
   // Initialize generated code with agent's python_script or empty
   useEffect(() => {
