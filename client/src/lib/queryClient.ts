@@ -13,8 +13,17 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Get Supabase token instead of localStorage token
-  const { data: { session } } = await supabase.auth.getSession();
+  // Get Supabase token with a retry mechanism
+  let { data: { session } } = await supabase.auth.getSession();
+  
+  // If no session, try refreshing once
+  if (!session) {
+    console.log('No session found, attempting to refresh...');
+    await supabase.auth.refreshSession();
+    const refreshResult = await supabase.auth.getSession();
+    session = refreshResult.data.session;
+  }
+  
   const token = session?.access_token;
   
   console.log('API Request to:', url);
@@ -23,6 +32,8 @@ export async function apiRequest(
   console.log('API Request - User:', session?.user?.email);
   if (token) {
     console.log('API Request - Token preview:', token.substring(0, 20) + '...');
+  } else {
+    console.error('NO TOKEN AVAILABLE - This will cause 401 error');
   }
   
   const res = await fetch(url, {
