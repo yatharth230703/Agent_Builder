@@ -196,12 +196,12 @@ export default function Chat() {
     }]);
   };
 
-  // Initialize generated code with agent's python_script or empty
+  // Initialize generated code with agent's python_script
   useEffect(() => {
-    if (agent?.python_script && !generatedCode) {
+    if (agent?.python_script) {
       setGeneratedCode(agent.python_script);
     }
-  }, [agent, generatedCode]);
+  }, [agent]);
 
   // Set analysis data when it loads
   useEffect(() => {

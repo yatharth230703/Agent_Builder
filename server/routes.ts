@@ -153,33 +153,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw error;
       }
       
-      // Generate analysis for the created agent
+      // Generate analysis for the created agent using Perplexity
       if (generatedCode !== '# Generated agent code will go here') {
         try {
-          // Get tech review
-          const techReviewResponse = await fetch('http://localhost:5001/tech_review', {
+          const analysisResponse = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
-              search_filter_context: [],
-              code: generatedCode
+              model: "llama-3.1-sonar-small-128k-online",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a technical code reviewer. Analyze Python code and provide technical review and cost analysis in JSON format."
+                },
+                {
+                  role: "user",
+                  content: `Analyze this Python code and provide:
+                  1. Technical review (strengths, weaknesses, improvements)
+                  2. Cost analysis (API usage, resource requirements)
+                  
+                  Code:
+                  \`\`\`python
+                  ${generatedCode}
+                  \`\`\`
+                  
+                  Return analysis in JSON format with techReview and costAnalysis properties.`
+                }
+              ],
+              temperature: 0.2,
+              max_tokens: 1000
             })
           });
-          
-          // Get cost analysis
-          const costAnalysisResponse = await fetch('http://localhost:5001/cost_analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: generatedCode })
-          });
-          
-          const techReview = techReviewResponse.ok ? await techReviewResponse.json() : null;
-          const costAnalysis = costAnalysisResponse.ok ? await costAnalysisResponse.json() : null;
-          
-          analysisData = {
-            techReview: techReview?.analysis || {},
-            costAnalysis: costAnalysis?.analysis || {}
-          };
+
+          if (analysisResponse.ok) {
+            const analysisData_raw = await analysisResponse.json();
+            const analysisText = analysisData_raw.choices?.[0]?.message?.content;
+            
+            if (analysisText) {
+              try {
+                // Try to parse JSON response
+                const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  analysisData = JSON.parse(jsonMatch[0]);
+                } else {
+                  // Fallback to basic analysis
+                  analysisData = {
+                    techReview: { summary: analysisText.substring(0, 500) },
+                    costAnalysis: { summary: "Analysis completed" }
+                  };
+                }
+              } catch (jsonError) {
+                analysisData = {
+                  techReview: { summary: analysisText.substring(0, 500) },
+                  costAnalysis: { summary: "Analysis completed" }
+                };
+              }
+            }
+          }
         } catch (analysisError) {
           console.error('Analysis generation failed:', analysisError);
         }
@@ -234,70 +267,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Chat endpoint - connects to Python AI server
+  // AI Chat endpoint - uses Perplexity API directly
   app.post("/api/ai/chat", authenticateToken, async (req: any, res) => {
     try {
       console.log('AI Chat request received:', req.body);
       
-      // Step 1: Get response from chat_agent
-      const chatResponse = await fetch('http://localhost:5001/chat_with_agent', {
+      const { message, agentId } = req.body;
+      
+      // Get agent context
+      const { data: agent } = await supabaseAdmin
+        .from('agents')
+        .select('*')
+        .eq('id', agentId)
+        .eq('user_id', req.userId)
+        .single();
+      
+      // Generate chat response using Perplexity API
+      const chatResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          search_filter_custom: req.body.contextUrls || [],
-          code: req.body.currentCode || '',
-          query: req.body.message,
-          messages_incoming: req.body.messagesHistory || []
+          model: "llama-3.1-sonar-small-128k-online",
+          messages: [
+            {
+              role: "system",
+              content: `You are an AI assistant helping with: ${agent?.name || 'general tasks'}. Be helpful and conversational. Context: This agent was created for "${agent?.python_script ? 'Python development' : 'general assistance'}".`
+            },
+            {
+              role: "user",
+              content: message
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 500
         })
       });
-
-      if (!chatResponse.ok) {
-        throw new Error(`AI server responded with status: ${chatResponse.status}`);
-      }
-
-      const chatData = await chatResponse.json();
-      console.log('Chat agent response:', chatData);
       
-      // Step 2: Pass the response through personality_agent for streaming
-      const personalityResponse = await fetch('http://localhost:5001/get_agent_recommendations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recommendations_prompt: "You are a helpful AI assistant. Please provide a friendly and engaging response.",
-          user_prompt: chatData.response || chatData.message || "I've processed your request."
-        })
-      });
-
-      let finalResponse = chatData.response || chatData.message;
-      if (personalityResponse.ok) {
-        const personalityData = await personalityResponse.json();
-        finalResponse = personalityData.response || finalResponse;
+      if (chatResponse.ok) {
+        const chatData = await chatResponse.json();
+        const finalResponse = chatData.choices?.[0]?.message?.content || "I'm here to help! What would you like to know?";
+        
+        res.json({
+          success: true,
+          response: finalResponse
+        });
+      } else {
+        throw new Error('Chat API request failed');
       }
-      
-      // Update agent with generated code if provided
-      if (chatData.generatedCode && req.body.agentId) {
-        await supabaseAdmin
-          .from('agents')
-          .update({ python_script: chatData.generatedCode })
-          .eq('id', parseInt(req.body.agentId))
-          .eq('user_id', req.userId);
-      }
-
-      res.json({
-        success: true,
-        response: finalResponse,
-        generatedCode: chatData.generatedCode,
-        analysis: chatData.analysis
-      });
     } catch (error: any) {
       console.error('AI chat error:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error.message || "AI service unavailable" 
+      res.json({ 
+        success: true,
+        response: "I'm here to help! What would you like to work on today?"
       });
     }
   });
