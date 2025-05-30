@@ -329,10 +329,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const chatData = await chatResponse.json();
         const finalResponse = chatData.choices?.[0]?.message?.content || "I'm here to help! What would you like to know?";
 
-        res.json({
+        // Check if the response contains updated code
+        let updatedCode = null;
+        const responseText = finalResponse;
+        
+        // Look for Python code in the response
+        const pythonMatch = responseText.match(/<python>([\s\S]*?)<\/python>/);
+        if (pythonMatch) {
+          updatedCode = pythonMatch[1].trim();
+        } else {
+          const codeBlockMatch = responseText.match(/```python([\s\S]*?)```/);
+          if (codeBlockMatch) {
+            updatedCode = codeBlockMatch[1].trim();
+          }
+        }
+
+        const responseObj = {
           success: true,
           response: finalResponse
-        });
+        };
+
+        if (updatedCode) {
+          responseObj.generatedCode = updatedCode;
+        }
+
+        res.json(responseObj);
       } else {
         throw new Error('Chat API request failed');
       }

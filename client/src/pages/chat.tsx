@@ -199,8 +199,20 @@ export default function Chat() {
   // Initialize generated code with agent's python_script
   useEffect(() => {
     if (agent?.python_script) {
-      console.log('Setting generated code:', agent.python_script.substring(0, 100) + '...');
-      setGeneratedCode(agent.python_script);
+      console.log('Raw python_script:', agent.python_script.substring(0, 200) + '...');
+      
+      // Extract Python code from markdown format if needed
+      let cleanCode = agent.python_script;
+      
+      // Remove markdown code block formatting
+      if (cleanCode.startsWith('```python')) {
+        cleanCode = cleanCode.replace(/^```python\n/, '').replace(/\n```$/, '');
+      } else if (cleanCode.startsWith('```')) {
+        cleanCode = cleanCode.replace(/^```\n/, '').replace(/\n```$/, '');
+      }
+      
+      console.log('Setting cleaned generated code:', cleanCode.substring(0, 100) + '...');
+      setGeneratedCode(cleanCode);
     }
   }, [agent]);
 
