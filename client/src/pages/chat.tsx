@@ -198,7 +198,8 @@ export default function Chat() {
 
   // Initialize generated code with agent's python_script
   useEffect(() => {
-    if (agent?.python_script) {
+    if (agent?.python_script && agent.python_script !== '# Generated agent code will go here') {
+      console.log('Setting generated code:', agent.python_script.substring(0, 100) + '...');
       setGeneratedCode(agent.python_script);
     }
   }, [agent]);
