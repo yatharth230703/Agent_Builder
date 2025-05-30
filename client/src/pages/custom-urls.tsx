@@ -112,6 +112,8 @@ export default function CustomUrls() {
         description: "Please try again or use the wizard flow",
         variant: "destructive",
       });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -211,9 +213,10 @@ export default function CustomUrls() {
               </Button>
               <Button
                 onClick={handleProceed}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                disabled={isCreating}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white disabled:opacity-50"
               >
-                Create Agent & Start Chat
+                {isCreating ? "Generating Agent..." : "Create Agent & Start Chat"}
               </Button>
             </div>
           </CardContent>
