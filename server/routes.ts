@@ -80,11 +80,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let generatedCode = '# Generated agent code will go here';
       let analysisData = null;
 
-      // Generate real agent code using AI server
+      // Generate real agent code for custom flow
       if (req.body.prompt && req.body.flow === 'custom') {
-        console.log('Calling AI server for custom code generation:', req.body.prompt);
+        console.log('Generating custom agent code for:', req.body.prompt);
         
         try {
+          // First try AI server
           const aiServerResponse = await fetch('http://localhost:5001/api/ai/custom', {
             method: 'POST',
             headers: {
@@ -93,7 +94,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             body: JSON.stringify({
               prompt: req.body.prompt,
               searchFilters: req.body.contextUrls || []
-            })
+            }),
+            signal: AbortSignal.timeout(5000)
           });
 
           if (aiServerResponse.ok) {
@@ -102,11 +104,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
               generatedCode = aiData.python;
               console.log('Successfully generated code using AI server');
             }
-          } else {
-            console.error('AI server responded with status:', aiServerResponse.status);
           }
         } catch (error) {
-          console.error('Failed to connect to AI server:', error);
+          console.log('AI server unavailable, using direct Perplexity call');
+          
+          // Use domain-filtered Perplexity search matching your AI server's approach
+          try {
+            const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: "sonar-reasoning-pro",
+                messages: [
+                  {
+                    role: "system",
+                    content: `You are a world-class AI engineer with deep expertise in LLM agents, information-retrieval and Python tooling. Generate complete Python scripts that solve the user's task by programmatically pulling relevant knowledge from the provided websites.
+
+**Formatting Instructions: Your response MUST use this XML wrapper**
+
+<root>
+    <Name>
+    [A witty name for this agent related to what it does]
+    </Name>
+    <CLI>
+    [terminal commands required before running the script]
+    </CLI>
+    <python>
+    [the complete Python program]
+    </python>
+    <Conclusion>
+    [clear explanation + ONE follow-up question]
+    </Conclusion>
+</root>`
+                  },
+                  {
+                    role: "user",
+                    content: req.body.prompt
+                  }
+                ],
+                web_search_options: {
+                  search_context_size: "high"
+                },
+                search_domain_filter: req.body.contextUrls || []
+              })
+            });
+
+            if (perplexityResponse.ok) {
+              const perplexityData = await perplexityResponse.json();
+              const responseText = perplexityData.choices?.[0]?.message?.content;
+              
+              if (responseText) {
+                // Extract Python code from XML response
+                const pythonMatch = responseText.match(/<python>([\s\S]*?)<\/python>/);
+                if (pythonMatch) {
+                  generatedCode = pythonMatch[1].trim();
+                  console.log('Successfully generated code using Perplexity');
+                }
+              }
+            }
+          } catch (perplexityError) {
+            console.error('Perplexity generation failed:', perplexityError);
+          }
         }
       }
 

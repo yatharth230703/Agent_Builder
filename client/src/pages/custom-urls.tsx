@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 export default function CustomUrls() {
   const [userPrompt, setUserPrompt] = useState("");
   const [urls, setUrls] = useState<string[]>([""]);
+  const [isCreating, setIsCreating] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -55,6 +56,8 @@ export default function CustomUrls() {
       return;
     }
 
+    setIsCreating(true);
+
     // 1) Get Supabase session (includes the JWT)
     const {
       data: { session },
@@ -62,6 +65,7 @@ export default function CustomUrls() {
     } = await supabase.auth.getSession();
 
     if (sessionError || !session?.access_token) {
+      setIsCreating(false);
       return toast({
         title: "Not logged in",
         description: "Please log in before creating an agent",
