@@ -79,42 +79,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let generatedCode = '# Generated agent code will go here';
       let analysisData = null;
       
-      // Determine which AI agent to use based on the creation flow
-      if (req.body.flow === 'custom' && req.body.prompt) {
-        // Use custom_code_agent for "I KNOW WHAT I'M DOING" route
-        console.log('Using custom_code_agent for custom flow');
+      // Generate real agent code using Perplexity API
+      if (req.body.prompt) {
+        console.log('Generating real agent code for:', req.body.prompt);
         
-        const aiResponse = await fetch('http://localhost:5001/generate_custom_code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            search_filter_custom: req.body.contextUrls || [],
-            user_prompt: req.body.prompt
-          })
-        });
-        
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          generatedCode = aiData.generated_code || generatedCode;
-        }
-        
-      } else if (req.body.flow === 'walkthrough' && req.body.config) {
-        // Use walk_me_through_code_agent for wizard route
-        console.log('Using walk_me_through_code_agent for walkthrough flow');
-        
-        const aiResponse = await fetch('http://localhost:5001/walkthrough_code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            search_filter_context: req.body.contextUrls || [],
-            tech_stack: req.body.config,
-            user_prompt: req.body.prompt || req.body.name
-          })
-        });
-        
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          generatedCode = aiData.generated_code || generatedCode;
+        try {
+          const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: "llama-3.1-sonar-small-128k-online",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are an expert Python developer. Generate complete, working Python code for AI agents. Include all necessary imports, error handling, and documentation."
+                },
+                {
+                  role: "user",
+                  content: `Create a Python script for: ${req.body.prompt}
+                  
+                  Requirements:
+                  - Use ${req.body.config?.framework || 'vanilla Python'}
+                  - LLM Provider: ${req.body.config?.llmProvider || 'default'}
+                  - Vector DB: ${req.body.config?.vectorDb || 'memory'}
+                  - Context URLs: ${req.body.config?.customUrls?.join(', ') || 'none'}
+                  
+                  Return only the Python code, no explanations.`
+                }
+              ],
+              temperature: 0.2,
+              max_tokens: 2000
+            })
+          });
+
+          if (perplexityResponse.ok) {
+            const perplexityData = await perplexityResponse.json();
+            const generatedText = perplexityData.choices?.[0]?.message?.content;
+            
+            if (generatedText) {
+              // Extract Python code from the response
+              const codeMatch = generatedText.match(/```python\n([\s\S]*?)\n```/) || 
+                               generatedText.match(/```\n([\s\S]*?)\n```/);
+              
+              if (codeMatch) {
+                generatedCode = codeMatch[1].trim();
+              } else if (generatedText.includes('import') || generatedText.includes('def ')) {
+                generatedCode = generatedText.trim();
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to generate code with Perplexity:', error);
         }
       }
       
