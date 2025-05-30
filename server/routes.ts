@@ -80,60 +80,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let generatedCode = '# Generated agent code will go here';
       let analysisData = null;
 
-      // Generate real agent code using Perplexity API
-      if (req.body.prompt) {
-        console.log('Generating real agent code for:', req.body.prompt);
-
+      // Generate real agent code using AI server
+      if (req.body.prompt && req.body.flow === 'custom') {
+        console.log('Calling AI server for custom code generation:', req.body.prompt);
+        
         try {
-          const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+          const aiServerResponse = await fetch('http://localhost:5001/api/ai/custom', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: "llama-3.1-sonar-small-128k-online",
-              messages: [
-                {
-                  role: "system",
-                  content: "You are an expert Python developer. Generate complete, working Python code for AI agents. Include all necessary imports, error handling, and documentation."
-                },
-                {
-                  role: "user",
-                  content: `Create a Python script for: ${req.body.prompt}
-
-                  Requirements:
-                  - Use ${req.body.config?.framework || 'vanilla Python'}
-                  - LLM Provider: ${req.body.config?.llmProvider || 'default'}
-                  - Vector DB: ${req.body.config?.vectorDb || 'memory'}
-                  - Context URLs: ${req.body.config?.customUrls?.join(', ') || 'none'}
-
-                  Return only the Python code, no explanations.`
-                }
-              ],
-              temperature: 0.2,
-              max_tokens: 2000
+              prompt: req.body.prompt,
+              searchFilters: req.body.contextUrls || []
             })
           });
 
-          if (perplexityResponse.ok) {
-            const perplexityData = await perplexityResponse.json();
-            const generatedText = perplexityData.choices?.[0]?.message?.content;
-
-            if (generatedText) {
-              // Extract Python code from the response
-              const codeMatch = generatedText.match(/```python\n([\s\S]*?)\n```/) || 
-                               generatedText.match(/```\n([\s\S]*?)\n```/);
-
-              if (codeMatch) {
-                generatedCode = codeMatch[1].trim();
-              } else if (generatedText.includes('import') || generatedText.includes('def ')) {
-                generatedCode = generatedText.trim();
-              }
+          if (aiServerResponse.ok) {
+            const aiData = await aiServerResponse.json();
+            if (aiData.success && aiData.python) {
+              generatedCode = aiData.python;
+              console.log('Successfully generated code using AI server');
             }
+          } else {
+            console.error('AI server responded with status:', aiServerResponse.status);
           }
         } catch (error) {
-          console.error('Failed to generate code with Perplexity:', error);
+          console.error('Failed to connect to AI server:', error);
         }
       }
 
