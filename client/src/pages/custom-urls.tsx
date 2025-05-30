@@ -80,6 +80,7 @@ export default function CustomUrls() {
         body: JSON.stringify({
           name: "Custom Agent",
           prompt: userPrompt,
+          flow: "custom",
           config: {
             approach: "custom",
             framework: "vanilla",
@@ -89,6 +90,7 @@ export default function CustomUrls() {
             vectorDb: "memory",
             customUrls: validUrls,
           },
+          contextUrls: validUrls,
         }),
       });
 

@@ -5,4 +5,5 @@ export interface WizardConfig {
   toolUse: string;
   embedder: string;
   vectorDb: string;
+  customUrls?: string[];
 }

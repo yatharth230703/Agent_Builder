@@ -70,24 +70,13 @@ export default function Wizard() {
 
   const createAgentMutation = useMutation({
     mutationFn: async (data: { name: string; config: WizardConfig; prompt: string }) => {
-      // First generate the agent code using AI
-      const aiResponse = await fetch('http://localhost:5001/api/ai/walkthrough', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: data.prompt,
-          techStack: `${data.config.framework} + ${data.config.llmProvider} + ${data.config.toolUse}`,
-          options: data.config
-        })
-      });
-      
-      const aiData = await aiResponse.json();
-      
-      // Then save the agent with generated code
+      // Create agent with wizard flow to generate real code
       const agentData = {
         name: data.name,
+        prompt: data.prompt,
         config: data.config,
-        pythonScript: aiData.success ? aiData.python : ""
+        flow: 'walkthrough',
+        contextUrls: data.config.customUrls || []
       };
       
       const response = await apiRequest("POST", "/api/agents", agentData);
