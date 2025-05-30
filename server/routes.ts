@@ -384,11 +384,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Helper function to parse XML response to JSON (migrated from Python)
+  // Helper function to parse XML response to JSON
   function xmlToJson(xmlString: string): Record<string, string> {
     try {
       const result: Record<string, string> = {};
-      // Use global flag compatible with older ES versions
       const globalRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
       let match;
       while ((match = globalRegex.exec(xmlString)) !== null) {
@@ -399,74 +398,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error parsing XML:', error);
       return { error: `Failed to parse XML: ${error}` };
-    }
-  }
-
-  // Direct function for custom code generation
-  async function generateCustomCodeDirect(prompt: string, searchFilters: string[]) {
-    try {
-      const response = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: "sonar-reasoning-pro",
-          messages: [
-            {
-              role: "system",
-              content: `You are a world-class AI engineer with deep expertise in LLM agents, information-retrieval and Python tooling. Generate complete Python scripts that solve the user's task by programmatically pulling relevant knowledge from the provided websites.
-
-**Formatting Instructions: Your response MUST use this XML wrapper**
-
-<root>
-    <Name>
-    [A witty name for this agent related to what it does]
-    </Name>
-    <CLI>
-    [terminal commands required before running the script]
-    </CLI>
-    <python>
-    [the complete Python program]
-    </python>
-    <Conclusion>
-    [clear explanation + ONE follow-up question]
-    </Conclusion>
-</root>`
-            },
-            {
-              role: "user",
-              content: `Task: ${prompt}\n\nContext URLs: ${searchFilters.join(', ')}`
-            }
-          ],
-          search_domain_filter: searchFilters.length > 0 ? searchFilters : undefined,
-          max_tokens: 3000,
-          temperature: 0.2
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const content = data.choices[0].message.content;
-        const parsed = xmlToJson(content);
-        
-        return {
-          success: true,
-          name: parsed.Name || "",
-          cli: parsed.CLI || "",
-          python: parsed.python || "",
-          conclusion: parsed.Conclusion || ""
-        };
-      } else {
-        throw new Error('Custom code API request failed');
-      }
-    } catch (error) {
-      console.error('Direct custom code generation error:', error);
-      return {
-        success: false,
-        error: `Failed to generate code: ${error}`
-      };
     }
   }
 
