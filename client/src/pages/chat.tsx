@@ -236,8 +236,8 @@ export default function Chat() {
       {/* Main Content Grid - No Footer, Full Height */}
       <div className="flex-1 grid grid-cols-12 grid-rows-12 gap-4 p-4">
         
-        {/* Chat Panel - Takes up 6 columns, 10 rows (much taller) */}
-        <div className="col-span-6 row-span-10 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* Chat Panel - Takes up 6 columns, 12 rows (full height) */}
+        <div className="col-span-6 row-span-12 bg-white rounded-2xl shadow-lg flex flex-col">
           {/* Chat Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
