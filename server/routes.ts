@@ -133,11 +133,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const responseText = perplexityData.choices?.[0]?.message?.content;
             
             if (responseText) {
+              console.log('Perplexity API Response:', responseText.substring(0, 500) + '...');
               // Extract Python code from XML response
               const pythonMatch = responseText.match(/<python>([\s\S]*?)<\/python>/);
               if (pythonMatch) {
                 generatedCode = pythonMatch[1].trim();
-                console.log('Successfully generated code using Perplexity');
+                console.log('Successfully extracted Python code:', generatedCode.substring(0, 200) + '...');
+              } else {
+                console.log('No Python code found in response, checking for code blocks');
+                // Fallback: look for code blocks
+                const codeBlockMatch = responseText.match(/```python([\s\S]*?)```/);
+                if (codeBlockMatch) {
+                  generatedCode = codeBlockMatch[1].trim();
+                  console.log('Found code in markdown blocks');
+                }
               }
             }
           }

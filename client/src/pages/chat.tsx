@@ -198,7 +198,7 @@ export default function Chat() {
 
   // Initialize generated code with agent's python_script
   useEffect(() => {
-    if (agent?.python_script && agent.python_script !== '# Generated agent code will go here') {
+    if (agent?.python_script) {
       console.log('Setting generated code:', agent.python_script.substring(0, 100) + '...');
       setGeneratedCode(agent.python_script);
     }
@@ -365,9 +365,15 @@ export default function Chat() {
           </div>
           
           <div className="flex-1 p-4 overflow-y-auto">
-            <pre className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto h-full">
-              <code>{generatedCode || "# Code will appear here after AI generates it"}</code>
-            </pre>
+            {isLoading ? (
+              <div className="bg-gray-900 p-3 rounded-lg h-full flex items-center justify-center">
+                <div className="text-green-400 text-sm">Loading agent code...</div>
+              </div>
+            ) : (
+              <pre className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto h-full">
+                <code>{generatedCode || "# Code will appear here after AI generates it"}</code>
+              </pre>
+            )}
           </div>
         </div>
 
