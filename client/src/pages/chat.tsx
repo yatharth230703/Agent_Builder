@@ -358,8 +358,8 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* CLI Panel - Takes up 6 columns, 4 rows (new panel above code/analysis) */}
-        <div className="col-span-6 row-span-4 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* CLI Panel - Takes up 6 columns, 2 rows (slim like context URLs) */}
+        <div className="col-span-6 row-span-2 bg-white rounded-2xl shadow-lg flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-phil-dark">CLI Commands</h3>
@@ -389,8 +389,8 @@ python agent.py --config config.json` : "# CLI commands will appear after AI gen
           </div>
         </div>
 
-        {/* Code Panel - Takes up 3 columns, 6 rows (moved down, smaller) */}
-        <div className="col-span-3 row-span-6 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* Code Panel - Takes up 3 columns, 8 rows (taller) */}
+        <div className="col-span-3 row-span-8 bg-white rounded-2xl shadow-lg flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-phil-dark">Generated Code</h3>
@@ -420,8 +420,8 @@ python agent.py --config config.json` : "# CLI commands will appear after AI gen
           </div>
         </div>
 
-        {/* Analysis Panel - Takes up 3 columns, 6 rows (moved down, same height as code) */}
-        <div className="col-span-3 row-span-6 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* Analysis Panel - Takes up 3 columns, 8 rows (taller, same as code) */}
+        <div className="col-span-3 row-span-8 bg-white rounded-2xl shadow-lg flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <h4 className="font-bold text-phil-dark text-sm">Analysis</h4>
           </div>
