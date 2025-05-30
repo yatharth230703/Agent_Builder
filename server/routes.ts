@@ -85,43 +85,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Generating custom agent code for:', req.body.prompt);
         
         try {
-          // Use integrated AI custom endpoint
-          const customResponse = await fetch(`http://localhost:5000/api/ai/custom`, {
+          console.log('Using integrated Perplexity API for code generation');
+          
+          const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': req.headers.authorization || ''
+              'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              prompt: req.body.prompt,
-              searchFilters: req.body.contextUrls || []
-            })
-          });
-
-          if (customResponse.ok) {
-            const customData = await customResponse.json();
-            if (customData.success && customData.python) {
-              generatedCode = customData.python;
-              console.log('Successfully generated code using integrated AI');
-            }
-          }
-        } catch (error) {
-          console.log('Using direct Perplexity call as fallback');
-          
-          // Use domain-filtered Perplexity search matching your AI server's approach
-          try {
-            const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                model: "sonar-reasoning-pro",
-                messages: [
-                  {
-                    role: "system",
-                    content: `You are a world-class AI engineer with deep expertise in LLM agents, information-retrieval and Python tooling. Generate complete Python scripts that solve the user's task by programmatically pulling relevant knowledge from the provided websites.
+              model: "sonar-reasoning-pro",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are a world-class AI engineer with deep expertise in LLM agents, information-retrieval and Python tooling. Generate complete Python scripts that solve the user's task by programmatically pulling relevant knowledge from the provided websites.
 
 **Formatting Instructions: Your response MUST use this XML wrapper**
 
@@ -139,35 +116,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     [clear explanation + ONE follow-up question]
     </Conclusion>
 </root>`
-                  },
-                  {
-                    role: "user",
-                    content: req.body.prompt
-                  }
-                ],
-                web_search_options: {
-                  search_context_size: "high"
                 },
-                search_domain_filter: req.body.contextUrls || []
-              })
-            });
-
-            if (perplexityResponse.ok) {
-              const perplexityData = await perplexityResponse.json();
-              const responseText = perplexityData.choices?.[0]?.message?.content;
-              
-              if (responseText) {
-                // Extract Python code from XML response
-                const pythonMatch = responseText.match(/<python>([\s\S]*?)<\/python>/);
-                if (pythonMatch) {
-                  generatedCode = pythonMatch[1].trim();
-                  console.log('Successfully generated code using Perplexity');
+                {
+                  role: "user",
+                  content: req.body.prompt
                 }
+              ],
+              search_domain_filter: req.body.contextUrls || [],
+              max_tokens: 3000,
+              temperature: 0.2
+            })
+          });
+
+          if (perplexityResponse.ok) {
+            const perplexityData = await perplexityResponse.json();
+            const responseText = perplexityData.choices?.[0]?.message?.content;
+            
+            if (responseText) {
+              // Extract Python code from XML response
+              const pythonMatch = responseText.match(/<python>([\s\S]*?)<\/python>/);
+              if (pythonMatch) {
+                generatedCode = pythonMatch[1].trim();
+                console.log('Successfully generated code using Perplexity');
               }
             }
-          } catch (perplexityError) {
-            console.error('Perplexity generation failed:', perplexityError);
           }
+        } catch (perplexityError) {
+          console.error('Perplexity generation failed:', perplexityError);
         }
       }
 
@@ -424,6 +399,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error parsing XML:', error);
       return { error: `Failed to parse XML: ${error}` };
+    }
+  }
+
+  // Direct function for custom code generation
+  async function generateCustomCodeDirect(prompt: string, searchFilters: string[]) {
+    try {
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "sonar-reasoning-pro",
+          messages: [
+            {
+              role: "system",
+              content: `You are a world-class AI engineer with deep expertise in LLM agents, information-retrieval and Python tooling. Generate complete Python scripts that solve the user's task by programmatically pulling relevant knowledge from the provided websites.
+
+**Formatting Instructions: Your response MUST use this XML wrapper**
+
+<root>
+    <Name>
+    [A witty name for this agent related to what it does]
+    </Name>
+    <CLI>
+    [terminal commands required before running the script]
+    </CLI>
+    <python>
+    [the complete Python program]
+    </python>
+    <Conclusion>
+    [clear explanation + ONE follow-up question]
+    </Conclusion>
+</root>`
+            },
+            {
+              role: "user",
+              content: `Task: ${prompt}\n\nContext URLs: ${searchFilters.join(', ')}`
+            }
+          ],
+          search_domain_filter: searchFilters.length > 0 ? searchFilters : undefined,
+          max_tokens: 3000,
+          temperature: 0.2
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        const parsed = xmlToJson(content);
+        
+        return {
+          success: true,
+          name: parsed.Name || "",
+          cli: parsed.CLI || "",
+          python: parsed.python || "",
+          conclusion: parsed.Conclusion || ""
+        };
+      } else {
+        throw new Error('Custom code API request failed');
+      }
+    } catch (error) {
+      console.error('Direct custom code generation error:', error);
+      return {
+        success: false,
+        error: `Failed to generate code: ${error}`
+      };
     }
   }
 
