@@ -85,28 +85,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Generating custom agent code for:', req.body.prompt);
         
         try {
-          // First try AI server
-          const aiServerResponse = await fetch('http://localhost:5001/api/ai/custom', {
+          // Use integrated AI custom endpoint
+          const customResponse = await fetch(`http://localhost:5000/api/ai/custom`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Authorization': req.headers.authorization || ''
             },
             body: JSON.stringify({
               prompt: req.body.prompt,
               searchFilters: req.body.contextUrls || []
-            }),
-            signal: AbortSignal.timeout(5000)
+            })
           });
 
-          if (aiServerResponse.ok) {
-            const aiData = await aiServerResponse.json();
-            if (aiData.success && aiData.python) {
-              generatedCode = aiData.python;
-              console.log('Successfully generated code using AI server');
+          if (customResponse.ok) {
+            const customData = await customResponse.json();
+            if (customData.success && customData.python) {
+              generatedCode = customData.python;
+              console.log('Successfully generated code using integrated AI');
             }
           }
         } catch (error) {
-          console.log('AI server unavailable, using direct Perplexity call');
+          console.log('Using direct Perplexity call as fallback');
           
           // Use domain-filtered Perplexity search matching your AI server's approach
           try {
@@ -406,6 +406,228 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Analysis error:', error);
       res.status(500).json({ message: error.message || "Failed to get analysis" });
+    }
+  });
+
+  // Helper function to parse XML response to JSON (migrated from Python)
+  function xmlToJson(xmlString: string): Record<string, string> {
+    try {
+      const result: Record<string, string> = {};
+      // Use global flag compatible with older ES versions
+      const globalRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
+      let match;
+      while ((match = globalRegex.exec(xmlString)) !== null) {
+        const [, tag, content] = match;
+        result[tag] = content.trim();
+      }
+      return result;
+    } catch (error) {
+      console.error('Error parsing XML:', error);
+      return { error: `Failed to parse XML: ${error}` };
+    }
+  }
+
+  // AI Recommendations endpoint (migrated from Python)
+  app.post("/api/ai/recommendations", authenticateToken, async (req: any, res) => {
+    try {
+      const { prompt, config } = req.body;
+      
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-sonar-small-128k-online",
+          messages: [
+            {
+              role: "system",
+              content: "You are an AI agent configuration expert. Provide recommendations for building AI agents based on user requirements. Format your response in XML with <recommendations> tags."
+            },
+            {
+              role: "user",
+              content: `Provide agent configuration recommendations for: ${prompt}`
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.2
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        const recommendations = xmlToJson(content);
+        
+        res.json({
+          success: true,
+          recommendations
+        });
+      } else {
+        throw new Error('Recommendations API request failed');
+      }
+    } catch (error: any) {
+      console.error('AI recommendations error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // AI Walkthrough endpoint (migrated from Python)
+  app.post("/api/ai/walkthrough", authenticateToken, async (req: any, res) => {
+    try {
+      const { prompt, options, techStack } = req.body;
+      
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-sonar-small-128k-online",
+          messages: [
+            {
+              role: "system",
+              content: `You are a code walkthrough expert. Generate detailed code explanations and implementations using ${techStack}. Format your response in XML with <Name>, <CLI>, <python>, and <Conclusion> tags.`
+            },
+            {
+              role: "user",
+              content: `Walk me through implementing: ${prompt}`
+            }
+          ],
+          max_tokens: 2000,
+          temperature: 0.2
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        const parsed = xmlToJson(content);
+        
+        res.json({
+          success: true,
+          name: parsed.Name || "",
+          cli: parsed.CLI || "",
+          python: parsed.python || "",
+          conclusion: parsed.Conclusion || ""
+        });
+      } else {
+        throw new Error('Walkthrough API request failed');
+      }
+    } catch (error: any) {
+      console.error('AI walkthrough error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // AI Tech Review endpoint (migrated from Python)
+  app.post("/api/ai/tech-review", authenticateToken, async (req: any, res) => {
+    try {
+      const { pythonScript, searchContext } = req.body;
+      
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-sonar-small-128k-online",
+          messages: [
+            {
+              role: "system",
+              content: "You are a senior code reviewer. Analyze Python code and provide technical feedback. Format your response in XML with <ScriptSummary>, <TechnicalImprovements>, <FeatureSuggestions>, and <Conclusion> tags."
+            },
+            {
+              role: "user",
+              content: `Review this Python code:\n\`\`\`python\n${pythonScript}\n\`\`\``
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.2
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        const parsed = xmlToJson(content);
+        
+        res.json({
+          success: true,
+          scriptSummary: parsed.ScriptSummary || "",
+          technicalImprovements: parsed.TechnicalImprovements || "",
+          featureSuggestions: parsed.FeatureSuggestions || "",
+          conclusion: parsed.Conclusion || ""
+        });
+      } else {
+        throw new Error('Tech review API request failed');
+      }
+    } catch (error: any) {
+      console.error('AI tech review error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // AI Cost Analysis endpoint (migrated from Python)
+  app.post("/api/ai/cost-analysis", authenticateToken, async (req: any, res) => {
+    try {
+      const { pythonScript } = req.body;
+      
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-sonar-small-128k-online",
+          messages: [
+            {
+              role: "system",
+              content: "You are a cost analysis expert for AI applications. Analyze Python code for resource usage and cost implications. Format your response in XML with <CostBreakdown>, <OptimizationSuggestions>, and <TotalEstimate> tags."
+            },
+            {
+              role: "user",
+              content: `Analyze the cost implications of this Python script:\n\`\`\`python\n${pythonScript}\n\`\`\``
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.2
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        const parsed = xmlToJson(content);
+        
+        res.json({
+          success: true,
+          costBreakdown: parsed.CostBreakdown || "",
+          optimizationSuggestions: parsed.OptimizationSuggestions || "",
+          totalEstimate: parsed.TotalEstimate || ""
+        });
+      } else {
+        throw new Error('Cost analysis API request failed');
+      }
+    } catch (error: any) {
+      console.error('AI cost analysis error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
     }
   });
 
