@@ -40,6 +40,32 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Start AI server on port 5001
+  const aiServerPath = path.join(process.cwd(), 'ai_server');
+  const aiServer = spawn('python', ['app.py'], {
+    cwd: aiServerPath,
+    stdio: 'pipe'
+  });
+
+  aiServer.stdout?.on('data', (data) => {
+    console.log(`[AI Server] ${data.toString().trim()}`);
+  });
+
+  aiServer.stderr?.on('data', (data) => {
+    console.log(`[AI Server Error] ${data.toString().trim()}`);
+  });
+
+  aiServer.on('error', (err) => {
+    console.error('[AI Server] Failed to start:', err.message);
+  });
+
+  // Cleanup AI server on exit
+  process.on('SIGINT', () => {
+    console.log('\nShutting down AI server...');
+    aiServer.kill();
+    process.exit();
+  });
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
