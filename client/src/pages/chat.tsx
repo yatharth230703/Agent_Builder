@@ -358,8 +358,39 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Code Panel - Takes up 4 columns, 10 rows (same height as chat) */}
-        <div className="col-span-4 row-span-10 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* CLI Panel - Takes up 6 columns, 4 rows (new panel above code/analysis) */}
+        <div className="col-span-6 row-span-4 bg-white rounded-2xl shadow-lg flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-phil-dark">CLI Commands</h3>
+              <div className="flex space-x-2">
+                <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText("# CLI commands will appear here")}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex space-x-2 mt-2">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                Terminal
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="flex-1 p-4 overflow-y-auto">
+            <pre className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto h-full">
+              <code># CLI commands will be generated here based on your agent
+{generatedCode ? `# Commands for executing the generated agent:
+pip install -r requirements.txt
+python agent.py
+
+# Or run with specific parameters:
+python agent.py --config config.json` : "# CLI commands will appear after AI generates them"}</code>
+            </pre>
+          </div>
+        </div>
+
+        {/* Code Panel - Takes up 3 columns, 6 rows (moved down, smaller) */}
+        <div className="col-span-3 row-span-6 bg-white rounded-2xl shadow-lg flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-phil-dark">Generated Code</h3>
@@ -389,8 +420,8 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Analysis Panel - Takes up 2 columns, 10 rows (same height as chat and code) */}
-        <div className="col-span-2 row-span-10 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* Analysis Panel - Takes up 3 columns, 6 rows (moved down, same height as code) */}
+        <div className="col-span-3 row-span-6 bg-white rounded-2xl shadow-lg flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <h4 className="font-bold text-phil-dark text-sm">Analysis</h4>
           </div>
