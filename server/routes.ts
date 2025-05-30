@@ -74,14 +74,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agents", authenticateToken, async (req: any, res) => {
     try {
       console.log('Creating agent for user:', req.userId);
+      console.log('Agent creation request:', req.body);
+      
+      let generatedCode = '# Generated agent code will go here';
+      let analysisData = null;
+      
+      // Determine which AI agent to use based on the creation flow
+      if (req.body.flow === 'custom' && req.body.prompt) {
+        // Use custom_code_agent for "I KNOW WHAT I'M DOING" route
+        console.log('Using custom_code_agent for custom flow');
+        
+        const aiResponse = await fetch('http://localhost:5001/generate_custom_code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            search_filter_custom: req.body.contextUrls || [],
+            user_prompt: req.body.prompt
+          })
+        });
+        
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          generatedCode = aiData.generated_code || generatedCode;
+        }
+        
+      } else if (req.body.flow === 'walkthrough' && req.body.config) {
+        // Use walk_me_through_code_agent for wizard route
+        console.log('Using walk_me_through_code_agent for walkthrough flow');
+        
+        const aiResponse = await fetch('http://localhost:5001/walkthrough_code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            search_filter_context: req.body.contextUrls || [],
+            tech_stack: req.body.config,
+            user_prompt: req.body.prompt || req.body.name
+          })
+        });
+        
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          generatedCode = aiData.generated_code || generatedCode;
+        }
+      }
       
       const agentData = {
-        user_id: req.userId, // This is the Supabase auth user ID (UUID)
+        user_id: req.userId,
         name: req.body.name || 'Custom Agent',
-        python_script: req.body.pythonScript || '# Generated agent code will go here'
+        python_script: generatedCode
       };
-      
-      console.log('Agent data:', agentData);
       
       const { data: agent, error } = await supabaseAdmin
         .from('agents')
@@ -94,8 +135,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw error;
       }
       
+      // Generate analysis for the created agent
+      if (generatedCode !== '# Generated agent code will go here') {
+        try {
+          // Get tech review
+          const techReviewResponse = await fetch('http://localhost:5001/tech_review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              search_filter_context: [],
+              code: generatedCode
+            })
+          });
+          
+          // Get cost analysis
+          const costAnalysisResponse = await fetch('http://localhost:5001/cost_analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: generatedCode })
+          });
+          
+          const techReview = techReviewResponse.ok ? await techReviewResponse.json() : null;
+          const costAnalysis = costAnalysisResponse.ok ? await costAnalysisResponse.json() : null;
+          
+          analysisData = {
+            techReview: techReview?.analysis || {},
+            costAnalysis: costAnalysis?.analysis || {}
+          };
+        } catch (analysisError) {
+          console.error('Analysis generation failed:', analysisError);
+        }
+      }
+      
       console.log('Agent created successfully:', agent);
-      res.status(201).json({ agent });
+      res.status(201).json({ 
+        agent,
+        analysis: analysisData
+      });
     } catch (error: any) {
       console.error('Failed to create agent:', error);
       res.status(400).json({ message: error.message || "Failed to create agent" });
@@ -145,41 +221,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('AI Chat request received:', req.body);
       
-      // Forward request to Python AI server
-      const aiResponse = await fetch('http://localhost:5001/chat_with_agent', {
+      // Step 1: Get response from chat_agent
+      const chatResponse = await fetch('http://localhost:5001/chat_with_agent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_prompt: req.body.message,
           search_filter_custom: req.body.contextUrls || [],
           code: req.body.currentCode || '',
+          query: req.body.message,
           messages_incoming: req.body.messagesHistory || []
         })
       });
 
-      if (!aiResponse.ok) {
-        throw new Error(`AI server responded with status: ${aiResponse.status}`);
+      if (!chatResponse.ok) {
+        throw new Error(`AI server responded with status: ${chatResponse.status}`);
       }
 
-      const aiData = await aiResponse.json();
-      console.log('AI server response:', aiData);
+      const chatData = await chatResponse.json();
+      console.log('Chat agent response:', chatData);
+      
+      // Step 2: Pass the response through personality_agent for streaming
+      const personalityResponse = await fetch('http://localhost:5001/get_agent_recommendations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recommendations_prompt: "You are a helpful AI assistant. Please provide a friendly and engaging response.",
+          user_prompt: chatData.response || chatData.message || "I've processed your request."
+        })
+      });
+
+      let finalResponse = chatData.response || chatData.message;
+      if (personalityResponse.ok) {
+        const personalityData = await personalityResponse.json();
+        finalResponse = personalityData.response || finalResponse;
+      }
       
       // Update agent with generated code if provided
-      if (aiData.generatedCode && req.body.agentId) {
+      if (chatData.generatedCode && req.body.agentId) {
         await supabaseAdmin
           .from('agents')
-          .update({ python_script: aiData.generatedCode })
+          .update({ python_script: chatData.generatedCode })
           .eq('id', parseInt(req.body.agentId))
           .eq('user_id', req.userId);
       }
 
       res.json({
         success: true,
-        response: aiData.response || aiData.message,
-        generatedCode: aiData.generatedCode,
-        analysis: aiData.analysis
+        response: finalResponse,
+        generatedCode: chatData.generatedCode,
+        analysis: chatData.analysis
       });
     } catch (error: any) {
       console.error('AI chat error:', error);
@@ -187,6 +281,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false, 
         error: error.message || "AI service unavailable" 
       });
+    }
+  });
+
+  // Endpoint to get initial analysis when loading a chat
+  app.get("/api/agents/:id/analysis", authenticateToken, async (req: any, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      
+      // Get agent data
+      const { data: agent, error } = await supabaseAdmin
+        .from('agents')
+        .select('*')
+        .eq('id', agentId)
+        .eq('user_id', req.userId)
+        .single();
+
+      if (error || !agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Generate fresh analysis
+      const techReviewResponse = await fetch('http://localhost:5001/tech_review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          search_filter_context: [],
+          code: agent.python_script
+        })
+      });
+      
+      const costAnalysisResponse = await fetch('http://localhost:5001/cost_analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: agent.python_script })
+      });
+      
+      const techReview = techReviewResponse.ok ? await techReviewResponse.json() : null;
+      const costAnalysis = costAnalysisResponse.ok ? await costAnalysisResponse.json() : null;
+      
+      const analysisData = {
+        techReview: techReview?.analysis || {},
+        costAnalysis: costAnalysis?.analysis || {}
+      };
+
+      res.json({ analysis: analysisData });
+    } catch (error: any) {
+      console.error('Analysis error:', error);
+      res.status(500).json({ message: error.message || "Failed to get analysis" });
     }
   });
 

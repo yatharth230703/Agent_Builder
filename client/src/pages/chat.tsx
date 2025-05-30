@@ -43,6 +43,14 @@ export default function Chat() {
     enabled: !!id,
   });
 
+  const agent = (agentData as any)?.agent;
+
+  // Load analysis when agent loads
+  const { data: analysisResponse } = useQuery({
+    queryKey: ["/api/agents", id, "analysis"],
+    enabled: !!id && !!agent,
+  });
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -188,14 +196,19 @@ export default function Chat() {
     }]);
   };
 
-  const agent = (agentData as any)?.agent;
-  
   // Initialize generated code with agent's python_script or empty
   useEffect(() => {
     if (agent?.python_script && !generatedCode) {
       setGeneratedCode(agent.python_script);
     }
   }, [agent, generatedCode]);
+
+  // Set analysis data when it loads
+  useEffect(() => {
+    if ((analysisResponse as any)?.analysis) {
+      setAnalysisData((analysisResponse as any).analysis);
+    }
+  }, [analysisResponse]);
 
   if (isLoading) {
     return (
@@ -208,10 +221,10 @@ export default function Chat() {
   return (
     <div className="h-screen flex flex-col">
       {/* Main Content Grid - No Footer, Full Height */}
-      <div className="flex-1 grid grid-cols-12 gap-4 p-4">
+      <div className="flex-1 grid grid-cols-12 grid-rows-12 gap-4 p-4">
         
-        {/* Chat Panel - Takes up 6 columns */}
-        <div className="col-span-6 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* Chat Panel - Takes up 6 columns, 10 rows (much taller) */}
+        <div className="col-span-6 row-span-10 bg-white rounded-2xl shadow-lg flex flex-col">
           {/* Chat Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -332,8 +345,8 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Code Panel - Takes up 4 columns */}
-        <div className="col-span-4 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* Code Panel - Takes up 4 columns, 10 rows (same height as chat) */}
+        <div className="col-span-4 row-span-10 bg-white rounded-2xl shadow-lg flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-phil-dark">Generated Code</h3>
@@ -357,26 +370,35 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Analysis Panel - Takes up 2 columns (Side panel) */}
-        <div className="col-span-2 bg-white rounded-2xl shadow-lg flex flex-col">
+        {/* Analysis Panel - Takes up 2 columns, 10 rows (same height as chat and code) */}
+        <div className="col-span-2 row-span-10 bg-white rounded-2xl shadow-lg flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <h4 className="font-bold text-phil-dark text-sm">Analysis</h4>
           </div>
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-3 text-xs">
               {analysisData ? (
                 <>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-3 w-3 text-green-500" />
-                    <span className="text-gray-700">{analysisData.patterns || "Standard patterns"}</span>
+                  <div className="space-y-2 mb-4">
+                    <h5 className="font-semibold text-gray-800 text-xs">Technical Review:</h5>
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-3 w-3 text-green-500" />
+                      <span className="text-gray-700">{analysisData.techReview?.patterns || "Standard patterns"}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                      <span className="text-gray-700">{analysisData.techReview?.suggestions || "Consider error handling"}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <AlertTriangle className="h-3 w-3 text-yellow-500" />
-                    <span className="text-gray-700">{analysisData.suggestions || "Consider error handling"}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="h-3 w-3 text-blue-500" />
-                    <span className="text-gray-700">{analysisData.cost || "Est. cost: $0.05/query"}</span>
+                  <div className="space-y-2">
+                    <h5 className="font-semibold text-gray-800 text-xs">Cost Analysis:</h5>
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-3 w-3 text-blue-500" />
+                      <span className="text-gray-700">{analysisData.costAnalysis?.estimate || "Est. cost: $0.05/query"}</span>
+                    </div>
+                    <div className="text-gray-600 text-xs">
+                      {analysisData.costAnalysis?.breakdown || "Detailed breakdown available"}
+                    </div>
                   </div>
                 </>
               ) : (
@@ -386,36 +408,36 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Context URLs Panel - Takes full width below chat */}
-        <div className="col-span-6 bg-white rounded-2xl shadow-lg">
-          <div className="p-4 border-b border-gray-200">
+        {/* Context URLs Panel - Takes 6 columns, 2 rows (much shorter) */}
+        <div className="col-span-6 row-span-2 bg-white rounded-2xl shadow-lg">
+          <div className="p-3 border-b border-gray-200">
             <h4 className="font-bold text-phil-dark text-sm">Context URLs</h4>
           </div>
-          <div className="p-4">
-            <div className="flex space-x-2 mb-3">
+          <div className="p-3">
+            <div className="flex space-x-2 mb-2">
               <Input
                 placeholder="Add documentation URL..."
                 value={newContextUrl}
                 onChange={(e) => setNewContextUrl(e.target.value)}
-                className="flex-1 text-sm"
+                className="flex-1 text-sm h-8"
               />
               <Button
                 onClick={addContextUrl}
                 size="sm"
-                className="bg-phil-purple hover:bg-purple-700 text-white"
+                className="bg-phil-purple hover:bg-purple-700 text-white h-8"
               >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            <div className="space-y-2 max-h-24 overflow-y-auto">
+            <div className="space-y-1 max-h-16 overflow-y-auto">
               {contextUrls.map((url, index) => (
-                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded text-xs">
+                <div key={index} className="flex items-center justify-between bg-gray-50 p-1 rounded text-xs">
                   <span className="truncate flex-1">{url}</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => removeContextUrl(index)}
-                    className="h-6 w-6 p-0"
+                    className="h-5 w-5 p-0"
                   >
                     <X className="h-3 w-3" />
                   </Button>
