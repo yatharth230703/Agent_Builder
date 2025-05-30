@@ -595,78 +595,33 @@ export default function Wizard() {
           );
         })}
 
-        {/* Epic Final Victory Section */}
+        {/* Final Section */}
         {isAllConfigured && (
           <div 
             ref={el => sectionRefs.current['final'] = el}
-            className="relative"
+            className="text-center"
           >
-            <div className="text-center mb-8">
-              <div className="relative inline-block">
-                <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 rounded-full animate-pulse opacity-30"></div>
-                <Trophy className="relative h-20 w-20 text-yellow-500 mx-auto animate-bounce" />
-              </div>
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mt-4 mb-2">
-                🎉 QUEST COMPLETE! 🎉
-              </h2>
-              <p className="text-xl text-gray-700 mb-2">You've mastered the AI Agent Builder!</p>
-              <div className="flex items-center justify-center space-x-2 mb-6">
-                <Zap className="h-6 w-6 text-yellow-500" />
-                <span className="text-2xl font-bold text-purple-600">{score} Total XP Earned!</span>
-                <Zap className="h-6 w-6 text-yellow-500" />
-              </div>
-            </div>
-
-            <Card className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 border-2 border-purple-200 shadow-2xl">
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500"></div>
-              
-              <CardContent className="p-10">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-purple-900 mb-4">Your AI Agent Configuration</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                    {Object.entries(config).map(([key, value]) => (
-                      <div key={key} className="bg-white rounded-lg p-4 shadow-md border border-purple-100">
-                        <div className="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-1">
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </div>
-                        <div className="text-lg font-bold text-purple-900">{value}</div>
-                      </div>
-                    ))}
-                  </div>
+            <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+              <CardContent className="p-8">
+                <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-green-900 mb-2">Configuration Complete!</h2>
+                <p className="text-green-700 mb-6">Your AI agent is ready to be created with the following configuration:</p>
+                
+                <div className="flex flex-wrap justify-center gap-2 mb-6">
+                  {Object.entries(config).map(([key, value]) => (
+                    <Badge key={key} variant="secondary" className="bg-green-100 text-green-800">
+                      {key}: {value}
+                    </Badge>
+                  ))}
                 </div>
 
-                <div className="text-center">
-                  <div className="mb-6">
-                    <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-green-500 to-blue-500 text-white px-6 py-2 rounded-full text-lg font-bold shadow-lg">
-                      <Rocket className="h-5 w-5" />
-                      <span>Ready for Launch!</span>
-                      <Sparkles className="h-5 w-5 animate-spin" />
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    onClick={handleCreateAgent}
-                    disabled={createAgentMutation.isPending}
-                    className="bg-gradient-to-r from-purple-600 via-pink-500 to-blue-500 hover:from-purple-700 hover:via-pink-600 hover:to-blue-600 text-white px-12 py-4 text-xl font-bold rounded-xl shadow-xl transform hover:scale-105 transition-all duration-300"
-                  >
-                    {createAgentMutation.isPending ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        <span>Creating Your Agent...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <Rocket className="h-6 w-6" />
-                        <span>Launch Agent & Start Chat</span>
-                        <Sparkles className="h-6 w-6" />
-                      </div>
-                    )}
-                  </Button>
-                  
-                  <p className="text-sm text-gray-600 mt-4">
-                    Your agent will be created and you'll be taken to the chat interface
-                  </p>
-                </div>
+                <Button 
+                  onClick={handleCreateAgent}
+                  disabled={createAgentMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+                >
+                  {createAgentMutation.isPending ? "Creating Agent..." : "Create Agent & Start Chat"}
+                </Button>
               </CardContent>
             </Card>
           </div>
