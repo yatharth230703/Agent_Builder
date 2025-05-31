@@ -27,41 +27,17 @@ import xml.etree.ElementTree as ET
 import html
 from typing import Dict, Any
 
-def xml_to_json(xml_string: str) -> Dict[str, Any]:
-    """Convert XML response to JSON format, and capture parse errors with context."""
+def xml_to_json(input_str: str) -> dict:
     try:
-        # Remove any HTML entities
-        xml_string = html.unescape(xml_string)
+        # Remove <think>...</think> block if present
+        cleaned_str = re.sub(r"<think>.*?</think>", "", input_str, flags=re.DOTALL).strip()
 
-        # Parse the XML
-        root = ET.fromstring(xml_string)
-
-        result = {}
-        for child in root:
-            result[child.tag] = child.text.strip() if child.text else ""
-
-        return result
-
-    except ET.ParseError as e:
-        error_msg = str(e)
-        line, column = e.position
-
-        # Extract a snippet from the error location for context
-        snippet_start = max(0, line - 3)
-        lines = xml_string.splitlines()
-
-        # Capture a few lines around the error
-        context_snippet = "\n".join(lines[snippet_start:line + 2])
-
-        print(f"Error parsing XML: {error_msg}")
-        return {
-            "error": f"Failed to parse XML at line {line}, column {column}: {error_msg}",
-            "context": context_snippet
-        }
-
-    except Exception as e:
-        # Catch other unexpected exceptions
-        return {"error": f"Unexpected error: {str(e)}"}
+        # Attempt to load remaining content as JSON
+        return json.loads(cleaned_str)
+    
+    except json.JSONDecodeError as e:
+        print("❌ Failed to parse JSON. Error:", e)
+        raise ValueError("Input is not valid JSON after removing <think> block.")
 
 
 @app.route('/api/ai/recommendations', methods=['POST'])
