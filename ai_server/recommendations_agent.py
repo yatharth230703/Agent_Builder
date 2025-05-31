@@ -2,7 +2,22 @@ import os
 import requests
 
 def get_recommendations(recommendations_prompt: str, user_prompt: str) -> str:
-    RECOMMENDATIONS_PROMPT  = f""" 
+    
+    class AnswerFormat(BaseModel):
+        core_concept: str
+        approach: str
+        approach_justification: str
+        framework: str
+        framework_justification: str
+        LLM_provider: str
+        LLM_provider_justification: str
+        Tool_use: str
+        Tool_use_justification: str
+        Embedder: str
+        Embedder_justification: str
+        Database_used: str
+        Database_used_justification: str
+    RECOMMENDATIONS_PROMPT  = """ 
         You are a world class AI agent researcher and know your way around all the frameworks in existance . You are tasked with recommending the appropriate
         approach , framework , LLMs , Primary Tools , Embedders , database providers for a usecase for building an agent, and providing with one line reasons as to why 
         you recommend what you recommend.
@@ -23,59 +38,36 @@ def get_recommendations(recommendations_prompt: str, user_prompt: str) -> str:
             c. You will always keep your reasoning to a single sentence and keep it crisp, concise and apt.
             d. Unless stated otherwise, you will always prefer the free to use options 
             
-        **Formatting Instructions: Your response must follow the following xml format** -
-
-        <root>
-        <core_concept>
-        [What does the user's agent use and aims to achieve]
-        </core_concept>
-        <approach>
-        [Single_Agent/ Multi_Agent]
-        </approach>
-        <approach_justification>
-        [Why did you think the approach you suggested is valid]
-        </approach_justification>
-        <framework>
-        [Langchain / Llamaindex / CrewAI/ Langgraph]
-        </framework>
-        <framework_justification>
-        [Why did you think the framework you suggested is valid]
-        </framework_justification>
-        <LLM_provider>
-        [Gemini/Groq/Deepseek/Perplexity/OpenAI/Claude]
-        </LLM_provider>
-        <LLM_provider_justification>
-        [Why did you think the LLM provider you suggested is valid]
-        </LLM_provider_justification>
-        <Tool_use>
-        [RAG / Websurf / Both]
-        </Tool_use>
-        <Tool_use_justification>
-        [Why did you think the tool usage you suggested is valid]
-        </Tool_use_justification>
-        <Embedder>
-        [Huggingface / Gemini/ OpenAI]
-        </Embedder>
-        <Embedder_justification>
-        [Why did you think the Embedder you suggested is valid]
-        </Embedder_justification>
-        <Database_used>
-        [Chroma/Pinecone/Weaviate]
-        </Database_used>
-        <Database_used_justification>
-        [Why did you think the Database you suggested is valid]
-        </Database_used_justification>
-        </root>
-        
+        **Formatting Instructions: Your response must follow the following json structure** -
+        {
+        "core_concept": What does the user's agent use and aims to achieve,
+        "approach": Single_Agent/ Multi_Agent,
+        "approach_justification": Why did you think the approach you suggested is valid,
+        "framework": Langchain / Llamaindex / CrewAI/ Langgraph,
+        "framework_justification": Why did you think the framework you suggested is valid,
+        "LLM_provider": Gemini/Groq/Deepseek/Perplexity/OpenAI/Claude,
+        "LLM_provider_justification": Why did you think the LLM provider you suggested is valid,
+        "Tool_use": RAG / Websurf / Both,
+        "Tool_use_justification": Why did you think the tool usage you suggested is valid,
+        "Embedder": Huggingface / Gemini/ OpenAI,
+        "Embedder_justification": Why did you think the Embedder you suggested is valid,
+        "Database_used": Chroma/Pinecone/Weaviate,
+        "Database_used_justification": Why did you think the Database you suggested is valid
+        }
+            YOUR OUTPUT MUST STRICTLY AND EXCLUSIVELY CONTAIN THE JSON , ABSOLUTELY NOTHING ELSE
         """
     url = "https://api.perplexity.ai/chat/completions"
     headers = {"Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"}
     payload = {
         "model": "sonar-pro",
         "messages": [
-            {"role": "system", "content": recommendations_prompt},
+            {"role": "system", "content": RECOMMENDATIONS_PROMPT},
             {"role": "user", "content": user_prompt}
-        ]
+        ],
+        "response_format": {
+                "type": "json_schema",
+            "json_schema": {"schema": AnswerFormat.model_json_schema()},
+        }
     }
     response = requests.post(url, headers=headers, json=payload).json()
     return response["choices"][0]["message"]["content"]

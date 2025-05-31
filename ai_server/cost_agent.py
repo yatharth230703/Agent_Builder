@@ -1,8 +1,16 @@
 import os
 import requests
 
+
+
 def run_cost_analysis(code: str) -> str:
-    AGENT_COST_PROMPT = f"""
+    
+    class AnswerFormat(BaseModel):
+        Analysis: str
+        CostEstimation: str
+        Conclusion: str
+    
+    AGENT_COST_PROMPT = """
         You are a world-class AI engineer and have been analysing LLM-powered systems for the last decade.
         You have deep knowledge of token-based pricing models across OpenAI, Anthropic, Google, Cohere,
         and other providers, plus hands-on experience benchmarking real usage patterns.
@@ -44,20 +52,14 @@ def run_cost_analysis(code: str) -> str:
             c. If you cannot find a price, say so explicitly instead of guessing.
             d. Keep the tone helpful and concise; no jargon without explanation.
 
-        **Formatting Instructions: Your response must follow the following XML format**
+        **Formatting Instructions: Your response must follow the following JSON structure**
 
-        <root>
-            <Analysis>
-            [Bullet-point extraction of models, parameters, and assumed usage]
-            </Analysis>
-            <CostEstimation>
-            [Clear cost breakdown table – Low / Moderate / High – with citations]
-            </CostEstimation>
-            <Conclusion>
-            [Plain-English summary & one follow-up question]
-            </Conclusion>
-        </root>
-        
+        {
+        "Analysis": Bullet-point extraction of models, parameters, and assumed usage,
+        "CostEstimation": Clear cost breakdown table – Low / Moderate / High – with citations,
+        "Conclusion": Plain-English summary & one follow-up question
+        }
+            YOUR OUTPUT MUST STRICTLY AND EXCLUSIVELY CONTAIN THE JSON , ABSOLUTELY NOTHING ELSE
         """
 
     url = "https://api.perplexity.ai/chat/completions"
@@ -71,7 +73,11 @@ def run_cost_analysis(code: str) -> str:
         "web_search_options": {
             "search_context_size": "medium"
         },
-        "search_domain_filter": ["https://ai.google.dev/gemini-api/docs/pricing" ,"https://groq.com/pricing/","https://openai.com/api/pricing/" , "https://api-docs.deepseek.com/quick_start/pricing" , "https://docs.perplexity.ai/guides/pricing" ,"https://www.anthropic.com/pricing"]
+        "search_domain_filter": ["https://ai.google.dev/gemini-api/docs/pricing" ,"https://groq.com/pricing/","https://openai.com/api/pricing/" , "https://api-docs.deepseek.com/quick_start/pricing" , "https://docs.perplexity.ai/guides/pricing" ,"https://www.anthropic.com/pricing"],
+        "response_format": {
+                "type": "json_schema",
+            "json_schema": {"schema": AnswerFormat.model_json_schema()},
+        }
     }
     response = requests.post(url, headers=headers, json=payload).json()
     return response["choices"][0]["message"]["content"]

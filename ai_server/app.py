@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import json
@@ -6,6 +9,7 @@ from typing import List, Dict, Any
 import xml.etree.ElementTree as ET
 import html
 import re
+from pydantic import BaseModel
 
 # Import our AI agent modules
 from chat_agent import query_perplexity
@@ -19,23 +23,46 @@ from personality_agent import stream_personality_response
 app = Flask(__name__)
 CORS(app)
 
+import xml.etree.ElementTree as ET
+import html
+from typing import Dict, Any
+
 def xml_to_json(xml_string: str) -> Dict[str, Any]:
-    """Convert XML response to JSON format"""
+    """Convert XML response to JSON format, and capture parse errors with context."""
     try:
         # Remove any HTML entities
         xml_string = html.unescape(xml_string)
-        
+
         # Parse the XML
         root = ET.fromstring(xml_string)
-        
+
         result = {}
         for child in root:
             result[child.tag] = child.text.strip() if child.text else ""
-        
+
         return result
+
+    except ET.ParseError as e:
+        error_msg = str(e)
+        line, column = e.position
+
+        # Extract a snippet from the error location for context
+        snippet_start = max(0, line - 3)
+        lines = xml_string.splitlines()
+
+        # Capture a few lines around the error
+        context_snippet = "\n".join(lines[snippet_start:line + 2])
+
+        print(f"Error parsing XML: {error_msg}")
+        return {
+            "error": f"Failed to parse XML at line {line}, column {column}: {error_msg}",
+            "context": context_snippet
+        }
+
     except Exception as e:
-        print(f"Error parsing XML: {e}")
-        return {"error": f"Failed to parse XML: {str(e)}"}
+        # Catch other unexpected exceptions
+        return {"error": f"Unexpected error: {str(e)}"}
+
 
 @app.route('/api/ai/recommendations', methods=['POST'])
 def get_agent_recommendations():
@@ -81,7 +108,7 @@ def walkthrough_code():
             "name": code_json.get("Name", ""),
             "cli": code_json.get("CLI", ""),
             "python": code_json.get("python", ""),
-            "conclusion": code_json.get("Conclusion", "")
+            "conclusion": code_json.get("conclusion", "")
         })
     
     except Exception as e:
@@ -99,6 +126,8 @@ def generate_custom_code():
         search_filters = data.get('searchFilters', [])
         
         custom_output = call_custom_code_agent(search_filters, user_prompt)
+        print(f"Raw output from call_custom_code_agent: {custom_output}")
+        print ("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         custom_json = xml_to_json(custom_output)
         
         return jsonify({
@@ -106,7 +135,7 @@ def generate_custom_code():
             "name": custom_json.get("Name", ""),
             "cli": custom_json.get("CLI", ""),
             "python": custom_json.get("python", ""),
-            "conclusion": custom_json.get("Conclusion", "")
+            "conclusion": custom_json.get("conclusion", "")
         })
     
     except Exception as e:
@@ -163,7 +192,7 @@ def tech_review():
             "scriptSummary": review_json.get("ScriptSummary", ""),
             "technicalImprovements": review_json.get("TechnicalImprovements", ""),
             "featureSuggestions": review_json.get("FeatureSuggestions", ""),
-            "conclusion": review_json.get("Conclusion", "")
+            "conclusion": review_json.get("conclusion", "")
         })
     
     except Exception as e:
@@ -186,7 +215,7 @@ def cost_analysis():
             "success": True,
             "analysis": cost_json.get("Analysis", ""),
             "costEstimation": cost_json.get("CostEstimation", ""),
-            "conclusion": cost_json.get("Conclusion", "")
+            "conclusion": cost_json.get("conclusion", "")
         })
     
     except Exception as e:

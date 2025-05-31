@@ -3,8 +3,13 @@ import requests
 
 def run_tech_review(search_filter_context: list, code: str) -> str:
     
-    
-    AGENT_TECH_REVIEW_PROMPT = f"""
+
+    class AnswerFormat(BaseModel):
+        ScriptSummary: str
+        TechnicalImprovements : str
+        FeatureSuggestions: str
+        Conclusion: str
+    AGENT_TECH_REVIEW_PROMPT = """
         You are a world-class AI engineer and solution architect who has spent the
         last decade optimising LLM-powered applications for reliability, depth, and
         extensibility.
@@ -43,26 +48,18 @@ def run_tech_review(search_filter_context: list, code: str) -> str:
             explicitly in *italics*.
             c. Keep tone friendly yet direct; avoid unnecessary jargon.
 
-        **Formatting Instructions: Your response must follow the XML layout below**
+        **Formatting Instructions: Your response must follow the JSON structure below**
 
-        <root>
-            <ScriptSummary>
-            [1–2 short paragraphs capturing purpose and stack]
-            </ScriptSummary>
+        {
+            "ScriptSummary" : 1–2 short paragraphs capturing purpose and stack
+            
+            "TechnicalImprovements" : • Bullet list with ≥3 and ≤4 technical suggestions ,
 
-            <TechnicalImprovements>
-            [• Bullet list with ≥3 and ≤4 technical suggestions]
-            </TechnicalImprovements>
+            "FeatureSuggestions" : • Bullet list of new tools / integrations with rationale,
 
-            <FeatureSuggestions>
-            [• Bullet list of new tools / integrations with rationale]
-            </FeatureSuggestions>
-
-            <Conclusion>
-            [Plain-English wrap-up and ONE follow-up question]
-            </Conclusion>
-        </root>
-        
+            "Conclusion": Plain-English wrap-up and ONE follow-up question
+        }
+            YOUR OUTPUT MUST STRICTLY AND EXCLUSIVELY CONTAIN THE JSON , ABSOLUTELY NOTHING ELSE
         """
 
     url = "https://api.perplexity.ai/chat/completions"
@@ -78,7 +75,11 @@ def run_tech_review(search_filter_context: list, code: str) -> str:
         "web_search_options": {
             "search_context_size": "medium"
         },
-        "search_domain_filter": search_filter_context
+        "search_domain_filter": search_filter_context,
+        "response_format": {
+                "type": "json_schema",
+            "json_schema": {"schema": AnswerFormat.model_json_schema()},
+        }
     }
     response = requests.post(url, headers=headers, json=payload).json()
     return response["choices"][0]["message"]["content"]

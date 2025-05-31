@@ -3,9 +3,21 @@
 import os
 import requests
 from typing import List
+from pydantic import BaseModel
+
+
+
+
 
 def call_custom_code_agent( search_filter_custom: List[str], user_prompt: str) -> str:
-    AGENT_SCRIPT_BUILDER_PROMPT = f"""
+    
+    class AnswerFormat(BaseModel):
+        Name: str
+        CLI : str
+        python: str
+        conclusion: str
+    
+    AGENT_SCRIPT_BUILDER_PROMPT = """
     You are a world-class AI engineer with deep expertise in LLM agents,
     information-retrieval and Python tooling. You have unrestricted access to
     Perplexity’s Sonar API, which lets you perform domain-restricted searches
@@ -53,24 +65,20 @@ def call_custom_code_agent( search_filter_custom: List[str], user_prompt: str) -
         c. Handle errors gracefully: 429 retry-after, network timeouts, etc.
         d. If Sonar JSON lacks a field, note it and fallback without crashing.
 
-    **Formatting Instructions: Your response MUST use this XML wrapper**
+    **Formatting Instructions: Your response MUST be in the given JSON structure**
 
-    <root>
-        <Name>
-        [A witty name for this agent related to what it does]
-        </Name>
-        <CLI>
-        [terminal commands required before running the script]
-        </CLI>
-        <python>
-        [the complete Python program]
-        </python>
-        <Conclusion>
-        [clear explanation + ONE follow-up question]
-        </Conclusion>
-    </root>
+    
+    {
+        "Name" : A witty name for this agent related to what it does,
+        "CLI" : terminal commands required before running the script,
+        "python" : the complete Python program,
+        "conclusion" : clear explanation + ONE follow-up question
+    }
+    YOUR OUTPUT MUST STRICTLY AND EXCLUSIVELY CONTAIN THE json, ABSOLUTELY NOTHING ELSE
     
     """
+    
+
     url = "https://api.perplexity.ai/chat/completions"
     headers = {"Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}"}
     payload = {
@@ -82,7 +90,17 @@ def call_custom_code_agent( search_filter_custom: List[str], user_prompt: str) -
         "web_search_options": {
             "search_context_size": "high"
         },
-        "search_domain_filter": search_filter_custom
+        "search_domain_filter": search_filter_custom,
+        "response_format": {
+                "type": "json_schema",
+            "json_schema": {"schema": AnswerFormat.model_json_schema()},
+        }
+        
     }
     response = requests.post(url, headers=headers, json=payload).json()
     return response["choices"][0]["message"]["content"]
+
+#a=call_custom_code_agent(["https://docs.llamaindex.ai/en/stable/api_reference/"] , "create a chat agent using llamaindex and gemini that allows me to chat with any given webpage given the URL")
+
+#print (a)
+#print (type(a))

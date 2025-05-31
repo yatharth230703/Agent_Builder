@@ -2,7 +2,14 @@ import os
 import requests
 
 def walk_me_through_code_agent( search_filter_context, tech_stack, user_prompt):
-    AGENT_BUILDER_PROMPT =f""" 
+    
+
+    class AnswerFormat(BaseModel):
+        Name: str
+        CLI : str
+        python: str
+        conclusion: str
+    AGENT_BUILDER_PROMPT =""" 
         You are a world class AI engineer and have been building agents and LLMs for the last decade. You have mastery over bash , CLI ,python and all the modern coding practices used in LLM frameworks like langchain, llamaindex, crewAI etc. You are tasked with generating a 
         python script for an AI agent ,given a set of detailed instructions , and that script should be such that it can be directly pasted in a single .py file and run for testing. 
         
@@ -23,23 +30,15 @@ def walk_me_through_code_agent( search_filter_context, tech_stack, user_prompt):
             c. You will make your conclusions in detail and user friendly
             d. You will always give the agent a witty name
             
-        **Formatting Instructions: Your response must follow the following xml format** -
-
-        <root>
-        <Name>
-        [A witty name for this agent related to what it does]
-        </Name>
-        <CLI>
-        [Any scripts that I need to run in the terminal]
-        </CLI>
-        <python>
-        [The main python script of the agent]
-        </python>
-        <Conclusion>
-        [A proper conclusion post-generation of main script]
-        </Conclusion>
-        </root>
+        **Formatting Instructions: Your response must follow the following json structure** -
         
+        {
+            "Name" : A witty name for this agent related to what it does, 
+            "CLI": Any scripts that I need to run in the terminal,
+            "python" : The main python script of the agent,
+            "conclusion" :  A proper conclusion post-generation of main script
+        }
+            YOUR OUTPUT MUST STRICTLY AND EXCLUSIVELY CONTAIN THE JSON , ABSOLUTELY NOTHING ELSE
         """
     url = "https://api.perplexity.ai/chat/completions"
     api_key = os.getenv('PERPLEXITY_API_KEY')
@@ -53,7 +52,11 @@ def walk_me_through_code_agent( search_filter_context, tech_stack, user_prompt):
         "web_search_options": {
             "search_context_size": "medium"
         },
-        "search_domain_filter": search_filter_context
+        "search_domain_filter": search_filter_context,
+        "response_format": {
+                "type": "json_schema",
+            "json_schema": {"schema": AnswerFormat.model_json_schema()},
+        }
     }
     response = requests.post(url, headers=headers, json=payload).json()
     return response["choices"][0]["message"]["content"]

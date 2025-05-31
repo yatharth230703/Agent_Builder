@@ -2,8 +2,19 @@
 import os
 import requests
 
+
+
 def query_perplexity(search_filter_custom: list, code: str , query:str , messages_incoming: list) -> str:
-    AGENT_INTENT_PROMPT = f"""
+
+    class AnswerFormat(BaseModel):
+        Request_type: str
+        Name: str
+        CLI: str
+        python: str
+        Response: str
+
+    
+    AGENT_INTENT_PROMPT = """
     You are a world-class AI engineer and conversational-agent architect with
     deep experience in automated program repair, intent classification, and
     LLM-powered Q&A.
@@ -53,25 +64,16 @@ def query_perplexity(search_filter_custom: list, code: str , query:str , message
     * Always after creating changes in code give the new agent a witty name
     * Keep tone professional yet friendly.
 
-    ## Strict XML output wrapper
+    ## Strict JSON structure output 
 
-    <root>
-        <Request_type>
-        [Cross_questioning/Code_change]
-        </Request_type>
-        <Name>
-        [A witty name for this agent related to what it does]
-        </Name>
-        <CLI>
-        [terminal commands or NULL]
-        </CLI>
-        <python>
-        [full updated script or NULL]
-        </python>
-        <Response>
-        [summary of code changes **or** answer to the user]
-        </Response>
-    </root>
+    {
+    "Request_type": Cross_questioning/Code_change,
+    "Name": A witty name for this agent related to what it does,
+    "CLI": terminal commands or NULL,
+    "python": full updated script or NULL,
+    "Response": summary of code changes **or** answer to the user
+    }
+        YOUR OUTPUT MUST STRICTLY AND EXCLUSIVELY CONTAIN THE JSON  , ABSOLUTELY NOTHING ELSE
 
     """
     messages_system =[ {"role": "system", "content": AGENT_INTENT_PROMPT}]
@@ -89,7 +91,11 @@ def query_perplexity(search_filter_custom: list, code: str , query:str , message
         "web_search_options": {
             "search_context_size": "medium"
         },
-        "search_domain_filter": search_filter_custom
+        "search_domain_filter": search_filter_custom,
+        "response_format": {
+                "type": "json_schema",
+            "json_schema": {"schema": AnswerFormat.model_json_schema()},
+        }
     }
     response = requests.post(url, headers=headers, json=payload).json()
     return response["choices"][0]["message"]["content"]
