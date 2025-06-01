@@ -100,12 +100,20 @@ def generate_custom_code():
         data = request.get_json()
         user_prompt = data.get('prompt', '')
         search_filters = data.get('searchFilters', [])
+        print("search_filters : " , search_filters )
         
         custom_output = call_custom_code_agent(search_filters, user_prompt)
         print(f"Raw output from call_custom_code_agent: {custom_output}")
         print ("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         custom_json = xml_to_json(custom_output)
         
+        print(jsonify({
+            "success": True,
+            "name": custom_json.get("Name", ""),
+            "cli": custom_json.get("CLI", ""),
+            "python": custom_json.get("python", ""),
+            "conclusion": custom_json.get("conclusion", "")
+        }))
         return jsonify({
             "success": True,
             "name": custom_json.get("Name", ""),
@@ -113,6 +121,7 @@ def generate_custom_code():
             "python": custom_json.get("python", ""),
             "conclusion": custom_json.get("conclusion", "")
         })
+        
     
     except Exception as e:
         return jsonify({

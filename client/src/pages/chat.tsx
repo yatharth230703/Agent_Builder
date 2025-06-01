@@ -38,12 +38,58 @@ export default function Chat() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: agentData, isLoading } = useQuery({
-    queryKey: ["/api/agents", id],
-    enabled: !!id,
-  });
-
-  const agent = (agentData as any)?.agent;
+    const { data: agentResponse, isLoading } = useQuery({
+        queryKey: ["/api/agents", id],
+        enabled: !!id,
+        // This is the missing piece: we need to tell React Query how to actually fetch from /api/agents/:id
+        queryFn: async () => {
+          const res = await fetch(`/api/agents/${id}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (!res.ok) {
+            throw new Error(`Failed to fetch agent ${id}`);
+          }
+          return res.json(); // we expect { agent: {...}, analysis: {...}, maybe CLI/Name/conclusion too }
+        },
+      });
+    
+      // Now `agentResponse` should look like { agent: { id, name, python_script, … }, analysis: {...}, cli?: string, name?: string, conclusion?: string }
+  const agent = (agentResponse as any)?.agent;
+  useEffect(() => {
+    console.log("isLoading state changed:", isLoading);
+  }, [isLoading]);
+  useEffect(() => {
+    if (!agentResponse) return;
+  
+    // 1) The “agent” object from Supabase has only the `python_script`
+    const pythonScript = agent?.python_script || "";
+    console.log("Raw python script:", pythonScript);
+    // If your AI server ever wraps the python code inside triple‐backticks,
+    // strip them off now. (You already had that logic, so I’m re‐using it:)
+  
+    let cleanCode = pythonScript;
+    if (cleanCode.startsWith("```python")) {
+      cleanCode = cleanCode.replace(/^```python\n/, "").replace(/\n```$/, "");
+    } else if (cleanCode.startsWith("```")) {
+      cleanCode = cleanCode.replace(/^```\n/, "").replace(/\n```$/, "");
+    }
+    setGeneratedCode(cleanCode);
+    console.log("Cleaned code set to state:", cleanCode);
+    // 2) The server’s JSON also contained `cli`, `name`, and `conclusion`.
+    //    If they exist, stash them in state:
+    if (typeof (agentResponse as any).cli === "string") {
+      setGeneratedCLI((agentResponse as any).cli);
+    }
+    if (typeof (agentResponse as any).name === "string") {
+      setAgentName((agentResponse as any).name);
+    }
+    if (typeof (agentResponse as any).conclusion === "string") {
+      setConclusionText((agentResponse as any).conclusion);
+    }
+  
+  }, [agentResponse, agent]);
+  
 
   // Load analysis when agent loads
   const { data: analysisResponse } = useQuery({
@@ -198,23 +244,33 @@ export default function Chat() {
 
   // Initialize generated code with agent's python_script
   useEffect(() => {
+    console.log('useEffect triggered. agentResponse:', agentResponse);
+    console.log('useEffect triggered. agent variable:', agent);
+
     if (agent?.python_script) {
+      console.log('Agent with python_script found. Processing code...');
       console.log('Raw python_script:', agent.python_script.substring(0, 200) + '...');
-      
+
       // Extract Python code from markdown format if needed
       let cleanCode = agent.python_script;
-      
+
       // Remove markdown code block formatting
       if (cleanCode.startsWith('```python')) {
         cleanCode = cleanCode.replace(/^```python\n/, '').replace(/\n```$/, '');
       } else if (cleanCode.startsWith('```')) {
         cleanCode = cleanCode.replace(/^```\n/, '').replace(/\n```$/, '');
+      } else {
+        console.log('python_script did not start with ```python or ```');
       }
-      
+
       console.log('Setting cleaned generated code:', cleanCode.substring(0, 100) + '...');
       setGeneratedCode(cleanCode);
+      console.log('generatedCode state should now be:', cleanCode.substring(0, 100) + '...');
+    } else {
+      console.log('useEffect triggered, but agent or python_script is missing.');
+      setGeneratedCode(''); // Ensure it's clear if no script exists
     }
-  }, [agent]);
+  }, [agent]); // Depend on agent to react to its updates
 
   // Set analysis data when it loads
   useEffect(() => {
@@ -377,15 +433,23 @@ export default function Chat() {
           </div>
           
           <div className="flex-1 p-4 overflow-y-auto">
-            <pre className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto h-full">
-              <code># CLI commands will be generated here based on your agent
-{generatedCode ? `# Commands for executing the generated agent:
-pip install -r requirements.txt
-python agent.py
+            
+            
+             <pre className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto h-full">
+               <code>
+                 {/* If our server returned something in `generatedCLI`, show it verbatim: */}
+                 {generatedCLI
+                   ? generatedCLI.split("\n").map((line, i) => (
+                       <span key={i}>
+                         {line}
+                         {"\n"}
+                       </span>
+                     ))
+                   : "# CLI commands will appear after AI generates them"}
+               </code>
+             </pre>
 
-# Or run with specific parameters:
-python agent.py --config config.json` : "# CLI commands will appear after AI generates them"}</code>
-            </pre>
+
           </div>
         </div>
 
@@ -414,7 +478,11 @@ python agent.py --config config.json` : "# CLI commands will appear after AI gen
               </div>
             ) : (
               <pre className="bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-x-auto h-full">
-                <code>{generatedCode || "# Code will appear here after AI generates it"}</code>
+                {generatedCode ? (
+                  <code>{generatedCode}</code>
+                ) : (
+                  <code>{"# Code will appear here after AI generates it"}</code>
+                )}
               </pre>
             )}
           </div>

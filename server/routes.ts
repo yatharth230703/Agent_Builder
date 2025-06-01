@@ -79,6 +79,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let generatedCode = '# Generated agent code will go here';
       let analysisData = null;
+      let returnedCLI = "";
+      let returnedName = "";
+      let returnedConclusion = "";
 
       // Generate real agent code for custom flow by calling AI server
       if (req.body.prompt && req.body.flow === 'custom') {
@@ -99,19 +102,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (aiServerResponse.ok) {
             const aiServerData = await aiServerResponse.json();
             // Check if the AI server returned a successful response with python code
-            if (aiServerData.success && aiServerData.python) {
-              generatedCode = aiServerData.python;
-              console.log('Successfully received Python code from AI server.');
-            } else {
-              console.log('AI server response did not contain generated code or was not successful:', aiServerData);
-              // Optionally handle cases where AI server fails or returns no code
-              // For now, generatedCode remains the default placeholder
-            }
-          } else {
-            console.error('AI server request failed:', aiServerResponse.status, aiServerResponse.statusText);
-            // Handle non-OK responses from AI server
-            // For now, generatedCode remains the default placeholder
-          }
+                      // aiServerData looks like:
+                      // { success: true, Name: "...", CLI: "...", python: "...", conclusion: "..." }
+                      if (aiServerData.success) {
+                        if (typeof aiServerData.python === "string") {
+                          generatedCode = aiServerData.python;
+                        }
+                        // capture the extra fields here:
+                        if (typeof aiServerData.CLI === "string") {
+                          returnedCLI = aiServerData.CLI;
+                        }
+                        if (typeof aiServerData.Name === "string") {
+                          returnedName = aiServerData.Name;
+                        }
+                        if (typeof aiServerData.conclusion === "string") {
+                          returnedConclusion = aiServerData.conclusion;
+                        }
+                      }
+                     } else {
+                       console.error('AI server request failed:', aiServerResponse.status);
+                     }
         } catch (aiServerError) {
           console.error('Error calling AI server for custom code:', aiServerError);
           // Handle network errors or other exceptions during the fetch call
@@ -202,10 +212,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log('Agent created successfully:', agent);
-      res.status(201).json({ 
-        agent,
-        analysis: analysisData
-      });
+          // Now return agent + analysis + CLI + Name + conclusion in one JSON payload:
+          res.status(201).json({
+            agent,
+            analysis: analysisData,
+            cli: returnedCLI,
+            name: returnedName,
+            conclusion: returnedConclusion,
+          });
     } catch (error: any) {
       console.error('Failed to create agent:', error);
       res.status(400).json({ message: error.message || "Failed to create agent" });

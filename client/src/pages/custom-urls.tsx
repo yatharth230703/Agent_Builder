@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Trash2, Plus, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
 
 
 export default function CustomUrls() {
@@ -14,6 +15,7 @@ export default function CustomUrls() {
   const [isCreating, setIsCreating] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Get user prompt from localStorage
@@ -101,6 +103,10 @@ export default function CustomUrls() {
       if (!response.ok) throw new Error();
 
       const { agent } = await response.json();
+
+      // Invalidate the query for the specific agent ID
+      queryClient.invalidateQueries({ queryKey: ["/api/agents", agent.id] });
+
       toast({
         title: "Agent created!",
         description: "Your agent is ready to chat",
